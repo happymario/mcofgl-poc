@@ -1,0 +1,31 @@
+{
+  "name": "mcofgl-poc",
+  "version": "0.1.0",
+  "description": "우리아이갓생 PoC — LLM 세계관 변환 엔진",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "type-check": "tsc --project tsconfig.typecheck.json",
+    "lint": "biome check src",
+    "validate:worldviews": "tsx scripts/validate-worldviews.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@langchain/anthropic": "^0.3.0",
+    "fastify": "^5.0.0",
+    "langchain": "^0.3.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
