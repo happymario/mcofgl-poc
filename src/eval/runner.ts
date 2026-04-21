@@ -139,6 +139,15 @@ function defaultOutputPath(): string {
   return join("data", "evaluations", `run-${ts}.json`);
 }
 
+// 경로에 ".." 세그먼트가 있으면 거부 — 절대 경로(/tmp 등)는 허용한다.
+function rejectTraversal(inputPath: string, label = "경로"): string {
+  const parts = inputPath.replace(/\\/g, "/").split("/");
+  if (parts.some((p) => p === "..")) {
+    throw new Error(`${label}에 경로 탐색(..)이 포함됩니다: ${inputPath}`);
+  }
+  return inputPath;
+}
+
 function parseKeyValue(arg: string): [string, string] | null {
   if (!arg.startsWith("--")) return null;
   const eq = arg.indexOf("=");
@@ -172,7 +181,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         worldviews = [value];
       }
     } else if (key === "output") {
-      if (value.length > 0) output = value;
+      if (value.length > 0) output = rejectTraversal(value, "출력 경로");
     } else if (key === "limit") {
       const n = Number.parseInt(value, 10);
       if (Number.isFinite(n) && n >= 0) {
@@ -215,8 +224,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRunResult>
   const startedAt = new Date().toISOString();
   const modelId = resolveModelId(options.model);
 
-  // API 키는 실제 호출 시점에만 필요. 스모크 테스트에서는 vi.mock으로 대체되므로 더미 값 허용.
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "test-key" });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const transformer = new QuestTransformer(client, modelId);
 
   // 세계관별 바이블을 미리 로드해 두고 counterpart 비교에 재사용.
@@ -339,17 +347,22 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRunResult>
 // vitest는 argv[1]을 자체 러너로 설정하므로 아래 조건을 만족하지 않는다.
 const entryArg = process.argv[1] ?? "";
 if (entryArg.endsWith("runner.ts") || entryArg.endsWith("runner.js")) {
-  (async () => {
-    const options = parseArgs(process.argv.slice(2));
-    try {
-      const result = await runEvaluation(options);
-      // 결과 요약을 stderr로 출력 (biome noConsoleLog 회피 및 stdout 비오염).
-      console.error(
-        `[eval] done: total=${result.summary.total} ok=${result.summary.succeeded} fail=${result.summary.failed} → ${options.output}`,
-      );
-    } catch (err) {
-      console.error(`[eval] fatal: ${err instanceof Error ? err.message : String(err)}`);
-      process.exitCode = 1;
-    }
-  })();
+  // CLI 전용: 환경변수 미설정 시 즉시 종료 (모든 건을 실패 기록하는 것보다 낫다).
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("[eval] fatal: ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.");
+    process.exitCode = 1;
+  } else {
+    (async () => {
+      const options = parseArgs(process.argv.slice(2));
+      try {
+        const result = await runEvaluation(options);
+        console.error(
+          `[eval] done: total=${result.summary.total} ok=${result.summary.succeeded} fail=${result.summary.failed} → ${options.output}`,
+        );
+      } catch (err) {
+        console.error(`[eval] fatal: ${err instanceof Error ? err.message : String(err)}`);
+        process.exitCode = 1;
+      }
+    })();
+  }
 }

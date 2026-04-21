@@ -248,6 +248,15 @@ function parseKeyValue(arg: string): [string, string] | null {
   return [arg.slice(2, eq), arg.slice(eq + 1)];
 }
 
+// 경로에 ".." 세그먼트가 있으면 거부 — 절대 경로(/tmp 등)는 허용한다.
+function rejectTraversal(inputPath: string): string {
+  const parts = inputPath.replace(/\\/g, "/").split("/");
+  if (parts.some((p) => p === "..")) {
+    throw new Error(`경로에 경로 탐색(..)이 포함됩니다: ${inputPath}`);
+  }
+  return inputPath;
+}
+
 export function parseCliArgs(argv: string[]): CliOptions {
   let runPath: string | undefined;
   let outputPath: string | undefined;
@@ -258,9 +267,9 @@ export function parseCliArgs(argv: string[]): CliOptions {
     const kv = parseKeyValue(arg);
     if (kv === null) continue;
     const [key, value] = kv;
-    if (key === "run" && value.length > 0) runPath = value;
-    else if (key === "output" && value.length > 0) outputPath = value;
-    else if (key === "answers" && value.length > 0) answersPath = value;
+    if (key === "run" && value.length > 0) runPath = rejectTraversal(value);
+    else if (key === "output" && value.length > 0) outputPath = rejectTraversal(value);
+    else if (key === "answers" && value.length > 0) answersPath = rejectTraversal(value);
     else if (key === "max-habits") {
       const n = Number.parseInt(value, 10);
       if (Number.isFinite(n) && n > 0) maxHabits = n;

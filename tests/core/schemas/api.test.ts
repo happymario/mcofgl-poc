@@ -89,6 +89,22 @@ describe("TransformRequestSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("habit_text 500자 초과를 거부한다", () => {
+    const result = TransformRequestSchema.safeParse({
+      habit_text: "가".repeat(501),
+      worldview_id: "isekai-academy-v1",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("habit_text 500자는 허용한다", () => {
+    const result = TransformRequestSchema.safeParse({
+      habit_text: "가".repeat(500),
+      worldview_id: "isekai-academy-v1",
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("TransformResponseSchema", () => {
