@@ -25,6 +25,9 @@ env/
 .env.local
 *.key
 
+# Work (feature progress management)
+.work/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -46,3 +49,16 @@ node_modules/
 data/cache/
 *.pkl
 *.parquet
+
+# BEGIN harness local ignores
+.harness-backups/
+.claude/sessions/
+.claude/checkpoints.log
+.claude/settings.local.json
+docs/_local/
+# END harness local ignores
+AGENTS.md
+CLAUDE.md
+.harness
+.codex
+.claude
