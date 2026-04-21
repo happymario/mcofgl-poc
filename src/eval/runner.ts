@@ -237,6 +237,12 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRunResult>
   const items: EvalItem[] = [];
   const metrics = new MetricsCollector();
 
+  const totalJobs = options.worldviews.reduce(
+    (sum, wvId) => sum + applyLimit(habits, options.limit).length,
+    0,
+  );
+  console.error(`[eval] 시작: model=${modelId} worldviews=[${options.worldviews.join(", ")}] total=${totalJobs}건`);
+
   for (const wvId of options.worldviews) {
     const ownBible = bibles.get(wvId);
     if (ownBible === undefined) continue;
@@ -279,6 +285,8 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRunResult>
           completionTokens: result.meta.completion_tokens,
         });
 
+        const done = items.length + 1;
+        console.error(`[eval] ${done}/${totalJobs} ${habit.id}×${wvId} ✓ ${result.meta.latency_ms}ms`);
         items.push({
           habitId: habit.id,
           habitText: habit.text,
@@ -293,8 +301,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRunResult>
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        // 실패 로그는 stderr로만 남긴다 (stdout은 CLI 결과 요약에 사용).
-        console.error(`[eval] ${habit.id}×${wvId} 변환 실패: ${message}`);
+        console.error(`[eval] ${items.length + 1}/${totalJobs} ${habit.id}×${wvId} ✗ ${message}`);
         items.push({
           habitId: habit.id,
           habitText: habit.text,
