@@ -15,6 +15,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { ParseError, ValidationError } from "./errors.js";
 import { assembleSystemPrompt } from "./prompt/assemble.js";
 import { loadBible } from "./prompt/load-bible.js";
+import { stripCodeFence } from "./prompt/strip-code-fence.js";
 import type { TransformRequest, TransformResponse } from "./schemas/api.js";
 import { QuestSchema } from "./schemas/quest.js";
 
@@ -34,16 +35,7 @@ function generateNonce(): string {
   return `${Date.now().toString(36)}-${nonceCounter.toString(36)}`;
 }
 
-// 마크다운 코드펜스 언랩: ```json ... ``` 또는 ``` ... ``` 만 제거.
-// 앞뒤에 모두 존재하지 않으면 원문을 그대로 반환 (보수적).
-function stripCodeFence(text: string): string {
-  const trimmed = text.trim();
-  const match = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
-  if (match && typeof match[1] === "string") {
-    return match[1].trim();
-  }
-  return trimmed;
-}
+// 코드펜스 언랩 유틸은 `./prompt/strip-code-fence.js`로 분리되었다 (공용).
 
 // Anthropic 응답에서 첫 번째 텍스트 블록만 추출.
 // content가 비거나 tool_use 등 비-텍스트 블록이면 ParseError (재시도 대상).
