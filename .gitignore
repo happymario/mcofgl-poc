@@ -31,9 +31,16 @@ dist/
 # Test & Coverage
 coverage/
 
-# Evaluation runs (large generated files)
+# Evaluation runs and artifacts (generated files)
 data/evaluations/run-*.json
 data/evaluations/*.answers.json
+data/evaluations/*.csv
+
+# Scripts build artifacts (tsx로 직접 실행; 빌드 산출물 불필요)
+scripts/*.js
+scripts/*.js.map
+scripts/*.d.ts
+scripts/*.d.ts.map
 
 # BEGIN harness local ignores
 .harness-backups/
