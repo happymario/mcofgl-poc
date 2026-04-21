@@ -37,3 +37,27 @@ export type TransformRequest = z.infer<typeof TransformRequestSchema>;
 export type TransformRequestInput = z.input<typeof TransformRequestSchema>;
 export type TransformResponseMeta = z.infer<typeof TransformResponseMetaSchema>;
 export type TransformResponse = z.infer<typeof TransformResponseSchema>;
+
+// F-002 Task 7 — /api/quest/generate 엔드포인트 요청/응답 스키마.
+// TransformRequest와 동일한 입력 계약을 유지해 QuestRetriever.retrieve(TransformRequest)에
+// 그대로 전달할 수 있도록 한다. meta는 경로 분기 결과(path/similarity/latency_ms)를 노출한다.
+export const GenerateRequestSchema = TransformRequestSchema;
+
+export const GenerateResponseMetaSchema = z.object({
+  // QuestRetriever.route가 결정한 경로 — 스펙 §3.1 경로 분기와 일치.
+  path: z.enum(["vector_exact", "vector_modify", "llm_new"]),
+  // Vector DB 히트가 없으면 null (QuestRetriever가 null을 반환한다).
+  similarity: z.number().nullable(),
+  // embed + search + (modify|transform) 전 구간 합산 지연.
+  latency_ms: z.number(),
+});
+
+export const GenerateResponseSchema = z.object({
+  quest: QuestSchema,
+  meta: GenerateResponseMetaSchema,
+});
+
+export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
+export type GenerateRequestInput = z.input<typeof GenerateRequestSchema>;
+export type GenerateResponseMeta = z.infer<typeof GenerateResponseMetaSchema>;
+export type GenerateResponse = z.infer<typeof GenerateResponseSchema>;
