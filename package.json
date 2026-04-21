@@ -11,7 +11,8 @@
     "test:coverage": "vitest run --coverage",
     "type-check": "tsc --project tsconfig.typecheck.json",
     "lint": "biome check src",
-    "validate:worldviews": "tsx scripts/validate-worldviews.ts"
+    "validate:worldviews": "tsx scripts/validate-worldviews.ts",
+    "eval:run": "tsx src/eval/runner.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
