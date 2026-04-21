@@ -1,0 +1,302 @@
+[
+  {
+    "id": "h001",
+    "text": "양치하기",
+    "type": "simple",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h002",
+    "text": "손씻기",
+    "type": "simple",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h003",
+    "text": "아침에 일어나기",
+    "type": "simple",
+    "expected_category": "기상/취침"
+  },
+  {
+    "id": "h004",
+    "text": "책상 정리하기",
+    "type": "simple",
+    "expected_category": "정리정돈"
+  },
+  {
+    "id": "h005",
+    "text": "밥 먹기",
+    "type": "simple",
+    "expected_category": "식사"
+  },
+  {
+    "id": "h006",
+    "text": "숙제하기",
+    "type": "simple",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h007",
+    "text": "산책하기",
+    "type": "simple",
+    "expected_category": "운동/외출"
+  },
+  {
+    "id": "h008",
+    "text": "인사하기",
+    "type": "simple",
+    "expected_category": "사회성"
+  },
+  {
+    "id": "h009",
+    "text": "세수하기",
+    "type": "simple",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h010",
+    "text": "이불 정리하기",
+    "type": "simple",
+    "expected_category": "정리정돈"
+  },
+  {
+    "id": "h011",
+    "text": "물 마시기",
+    "type": "simple",
+    "expected_category": "식사"
+  },
+  {
+    "id": "h012",
+    "text": "책 읽기",
+    "type": "simple",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h013",
+    "text": "줄넘기하기",
+    "type": "simple",
+    "expected_category": "운동/외출"
+  },
+  {
+    "id": "h014",
+    "text": "고맙다고 말하기",
+    "type": "simple",
+    "expected_category": "사회성"
+  },
+  {
+    "id": "h015",
+    "text": "일기 쓰기",
+    "type": "simple",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h016",
+    "text": "머리 감기",
+    "type": "simple",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h017",
+    "text": "장난감 정리하기",
+    "type": "simple",
+    "expected_category": "정리정돈"
+  },
+  {
+    "id": "h018",
+    "text": "낮잠 자기",
+    "type": "simple",
+    "expected_category": "기상/취침"
+  },
+  {
+    "id": "h019",
+    "text": "과일 먹기",
+    "type": "simple",
+    "expected_category": "식사"
+  },
+  {
+    "id": "h020",
+    "text": "약 먹기",
+    "type": "simple",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h021",
+    "text": "저녁 9시 전에 잠자리 들기",
+    "type": "timed",
+    "expected_category": "기상/취침"
+  },
+  {
+    "id": "h022",
+    "text": "아침 7시에 일어나기",
+    "type": "timed",
+    "expected_category": "기상/취침"
+  },
+  {
+    "id": "h023",
+    "text": "오후 4시에 숙제 시작하기",
+    "type": "timed",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h024",
+    "text": "저녁 6시에 저녁밥 먹기",
+    "type": "timed",
+    "expected_category": "식사"
+  },
+  {
+    "id": "h025",
+    "text": "오후 5시에 30분 동안 달리기",
+    "type": "timed",
+    "expected_category": "운동/외출"
+  },
+  {
+    "id": "h026",
+    "text": "아침 8시에 양치하기",
+    "type": "timed",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h027",
+    "text": "밤 10시까지 독서 30분 하기",
+    "type": "timed",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h028",
+    "text": "매일 저녁 7시에 30분만 TV 보기",
+    "type": "timed",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h029",
+    "text": "아침 8시 30분에 부모님께 다녀오겠습니다 인사하기",
+    "type": "timed",
+    "expected_category": "사회성"
+  },
+  {
+    "id": "h030",
+    "text": "오후 9시 전에 방 정리 끝내기",
+    "type": "timed",
+    "expected_category": "정리정돈"
+  },
+  {
+    "id": "h031",
+    "text": "학교 다녀와서 가방 정리하고 내일 준비물 챙기기",
+    "type": "complex",
+    "expected_category": "정리정돈"
+  },
+  {
+    "id": "h032",
+    "text": "자기 전에 양치하고 세수하고 내일 입을 옷 준비하기",
+    "type": "complex",
+    "expected_category": "기상/취침"
+  },
+  {
+    "id": "h033",
+    "text": "밥 먹기 전에 손 씻고 식탁 차리고 수저 놓기",
+    "type": "complex",
+    "expected_category": "식사"
+  },
+  {
+    "id": "h034",
+    "text": "숙제 끝내고 책가방 정리한 뒤 30분 동안 책 읽기",
+    "type": "complex",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h035",
+    "text": "아침에 일어나서 스트레칭하고 물 한 잔 마시고 공원 산책하기",
+    "type": "complex",
+    "expected_category": "운동/외출"
+  },
+  {
+    "id": "h036",
+    "text": "아침에 세수하고 양치하고 머리 빗기",
+    "type": "complex",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h037",
+    "text": "놀이터에서 친구랑 놀고 장난감 정리한 뒤 집에 돌아오기",
+    "type": "complex",
+    "expected_category": "사회성"
+  },
+  {
+    "id": "h038",
+    "text": "하루 일과 끝나고 일기 쓰고 내일 할 일 정리하기",
+    "type": "complex",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h039",
+    "text": "밥 먹고 나서 설거지 도와드리고 식탁 닦기",
+    "type": "complex",
+    "expected_category": "정리정돈"
+  },
+  {
+    "id": "h040",
+    "text": "학교에서 배운 내용 복습하고 모르는 부분 질문으로 정리하기",
+    "type": "complex",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h041",
+    "text": "좋은 습관 만들기",
+    "type": "ambiguous",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h042",
+    "text": "건강하게 지내기",
+    "type": "ambiguous",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h043",
+    "text": "착하게 행동하기",
+    "type": "ambiguous",
+    "expected_category": "사회성"
+  },
+  {
+    "id": "h044",
+    "text": "열심히 공부하기",
+    "type": "ambiguous",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h045",
+    "text": "잘 지내기",
+    "type": "ambiguous",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h046",
+    "text": "매일 30분씩 꾸준히 걷기 🚶",
+    "type": "edge",
+    "expected_category": "운동/외출"
+  },
+  {
+    "id": "h047",
+    "text": "English book 매일 10분씩 읽기",
+    "type": "edge",
+    "expected_category": "학습"
+  },
+  {
+    "id": "h048",
+    "text": "아침에 일어나서 이불 정리하고 세수하고 양치하고 아침밥 챙겨 먹고 학교 갈 준비 다 마친 다음 부모님께 다녀오겠습니다 인사하고 등교하기",
+    "type": "edge",
+    "expected_category": "생활습관"
+  },
+  {
+    "id": "h049",
+    "text": "양치 🪥 brushing 꼼꼼히 3분 동안 하기",
+    "type": "edge",
+    "expected_category": "위생"
+  },
+  {
+    "id": "h050",
+    "text": "breakfast 아침밥 꼭 챙겨 먹기",
+    "type": "edge",
+    "expected_category": "식사"
+  }
+]
