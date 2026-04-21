@@ -4,7 +4,7 @@
   "description": "우리아이갓생 PoC — LLM 세계관 변환 엔진",
   "type": "module",
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx --env-file=.env src/index.ts",
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -12,8 +12,8 @@
     "type-check": "tsc --project tsconfig.typecheck.json",
     "lint": "biome check src",
     "validate:worldviews": "tsx scripts/validate-worldviews.ts",
-    "eval:run": "tsx src/eval/runner.ts",
-    "eval:blind": "tsx src/eval/blind-generator.ts"
+    "eval:run": "tsx --env-file=.env src/eval/runner.ts",
+    "eval:blind": "tsx --env-file=.env src/eval/blind-generator.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
