@@ -238,7 +238,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRunResult>
   const metrics = new MetricsCollector();
 
   const totalJobs = options.worldviews.reduce(
-    (sum, wvId) => sum + applyLimit(habits, options.limit).length,
+    (sum, _wvId) => sum + applyLimit(habits, options.limit).length,
     0,
   );
   console.error(`[eval] 시작: model=${modelId} worldviews=[${options.worldviews.join(", ")}] total=${totalJobs}건`);
