@@ -12,7 +12,8 @@ export const CharacterContextSchema = z.object({
 
 export const TransformRequestSchema = z.object({
   habit_text: z.string().min(1),
-  worldview_id: z.string(),
+  // 소문자·숫자·하이픈·언더스코어만 허용 — 경로 탐색(../), 공백 등 주입 방지
+  worldview_id: z.string().regex(/^[a-z0-9_-]+$/, "worldview_id는 소문자, 숫자, 하이픈, 언더스코어만 허용"),
   age_group: z.string().default("7-12"),
   character_context: CharacterContextSchema.optional(),
   regenerate: z.boolean().default(false),
