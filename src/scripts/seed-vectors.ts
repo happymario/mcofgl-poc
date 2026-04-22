@@ -18,7 +18,7 @@
 // - 이 스크립트는 infra 타입이라 단위 테스트가 없다. dry-run 모드가 환경변수 없이도
 //   동작하도록, env 검증/클라이언트 생성은 dry-run 분기 이후에 수행한다.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { EmbeddingService } from "../core/vector/embedding.js";

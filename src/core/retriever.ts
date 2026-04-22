@@ -86,8 +86,10 @@ export class QuestRetriever {
     const path = this.route(topHit);
 
     if (path === "vector_exact" && topHit) {
+      // F-001 계약: original_habit / worldview_id는 항상 요청값으로 강제 주입.
+      // 저장된 quest의 seed habit과 혼동되지 않도록 caller가 동일한 의미를 보장.
       return {
-        quest: topHit.quest,
+        quest: { ...topHit.quest, original_habit: req.habit_text, worldview_id: req.worldview_id },
         meta: { path, similarity, latency_ms: Date.now() - start },
       };
     }

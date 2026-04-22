@@ -54,14 +54,22 @@ describe("VectorStore", () => {
   });
 
   describe("search", () => {
-    it("RPC가 반환한 quest_result가 QuestSchema와 불일치하면 ZodError로 실패한다", async () => {
+    it("RPC가 반환한 quest_result가 QuestSchema와 불일치하면 해당 행만 skip하고 나머지를 반환한다", async () => {
       client.rpc.mockResolvedValueOnce({
         data: [
+          // 유효하지 않은 행 — skip 대상
           {
             id: "11111111-1111-1111-1111-111111111111",
-            input_text: "아침 7시 기상",
+            input_text: "잘못된 행",
             quest_result: { quest_name: "부분 객체만 있는 잘못된 quest" },
-            similarity: 0.92,
+            similarity: 0.95,
+          },
+          // 유효한 행 — 반환 대상
+          {
+            id: "22222222-2222-2222-2222-222222222222",
+            input_text: "아침 7시 기상",
+            quest_result: sampleQuest,
+            similarity: 0.88,
           },
         ],
         error: null,
@@ -69,13 +77,14 @@ describe("VectorStore", () => {
 
       // biome-ignore lint/suspicious/noExplicitAny: 페이크 클라이언트를 SupabaseClient로 단언
       const store = new VectorStore(client as any);
-      await expect(
-        store.search({
-          embedding: new Array(1536).fill(0),
-          worldviewId: "fantasy",
-          ageGroup: "5-7",
-        }),
-      ).rejects.toThrow();
+      const hits = await store.search({
+        embedding: new Array(1536).fill(0),
+        worldviewId: "fantasy",
+        ageGroup: "5-7",
+      });
+      // 잘못된 행은 skip되고 유효한 행만 반환
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.id).toBe("22222222-2222-2222-2222-222222222222");
     });
 
     it("RPC 응답 배열을 SearchHit[]으로 매핑한다 (snake_case → camelCase)", async () => {

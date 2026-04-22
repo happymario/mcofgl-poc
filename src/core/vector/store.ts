@@ -57,13 +57,18 @@ export class VectorStore {
       similarity: number;
     }>;
 
-    return rows.map((row) => ({
-      id: row.id,
-      inputText: row.input_text,
-      // JSONB → Quest 런타임 검증. 드리프트 발생 시 ZodError로 즉시 실패.
-      quest: QuestSchema.parse(row.quest_result),
-      similarity: row.similarity,
-    }));
+    // JSONB → Quest 런타임 검증. 단일 행 파싱 실패 시 해당 행만 skip하고 계속 진행한다.
+    // (전체 reject 대신 graceful degradation — 손상된 행이 있어도 다른 히트가 활용 가능)
+    const hits: SearchHit[] = [];
+    for (const row of rows) {
+      const parsed = QuestSchema.safeParse(row.quest_result);
+      if (!parsed.success) {
+        console.warn(`[VectorStore.search] 잘못된 quest_result 행 skip: id=${row.id}`, parsed.error.issues);
+        continue;
+      }
+      hits.push({ id: row.id, inputText: row.input_text, quest: parsed.data, similarity: row.similarity });
+    }
+    return hits;
   }
 
   async save(params: {

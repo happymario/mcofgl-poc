@@ -106,12 +106,16 @@ describe("QuestRetriever", () => {
     fakes = buildFakes();
   });
 
-  it("sim=0.95 → vector_exact: modifier/transformer/save를 호출하지 않고 기존 퀘스트를 그대로 반환", async () => {
+  it("sim=0.95 → vector_exact: modifier/transformer/save를 호출하지 않고 original_habit/worldview_id 강제 주입 후 반환", async () => {
     fakes.store.search.mockResolvedValueOnce([makeHit(0.95)]);
 
     const result = await buildRetriever(fakes).retrieve(BASE_REQUEST);
 
-    expect(result.quest).toEqual(STORED_QUEST);
+    // original_habit/worldview_id는 저장된 seed 값이 아니라 요청값으로 덮어써야 함 (F-001 계약)
+    expect(result.quest.original_habit).toBe(BASE_REQUEST.habit_text);
+    expect(result.quest.worldview_id).toBe(BASE_REQUEST.worldview_id);
+    // 나머지 필드는 저장된 quest를 그대로 유지
+    expect(result.quest.quest_name).toBe(STORED_QUEST.quest_name);
     expect(result.meta.path).toBe("vector_exact");
     expect(result.meta.similarity).toBe(0.95);
     expect(result.meta.latency_ms).toBeGreaterThanOrEqual(0);
