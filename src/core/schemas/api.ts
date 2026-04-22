@@ -4,10 +4,22 @@ import { QuestSchema } from "./quest.js";
 // 스펙 §3.1 — /transform 엔드포인트 요청/응답 스키마.
 // age_group/regenerate는 기본값을 가지고, character_context는 선택적이다.
 
+// character_context 문자열 필드는 시스템 프롬프트에 직접 삽입되므로
+// 길이 상한과 제어 문자 금지를 적용해 프롬프트 인젝션을 제한한다.
+const PROMPT_STRING_MAX = 100;
+// ASCII 제어 문자(코드 포인트 0~31, 127)를 거부 — 프롬프트 인젝션 표면 축소
+const hasControlChar = (s: string) =>
+  [...s].some((c) => { const n = c.codePointAt(0) ?? 0; return n < 32 || n === 127; });
+const promptSafeString = (max = PROMPT_STRING_MAX) =>
+  z.string().min(1).max(max).refine(
+    (s) => !hasControlChar(s),
+    "제어 문자는 허용되지 않습니다",
+  );
+
 export const CharacterContextSchema = z.object({
-  name: z.string(),
-  class: z.string(),
-  level: z.number(),
+  name: promptSafeString(),
+  class: promptSafeString(),
+  level: z.number().int().min(1).max(999),
 });
 
 export const TransformRequestSchema = z.object({
@@ -15,7 +27,8 @@ export const TransformRequestSchema = z.object({
   habit_text: z.string().min(1).max(500),
   // 소문자·숫자·하이픈·언더스코어만 허용 — 경로 탐색(../), 공백 등 주입 방지
   worldview_id: z.string().regex(/^[a-z0-9_-]+$/, "worldview_id는 소문자, 숫자, 하이픈, 언더스코어만 허용"),
-  age_group: z.string().default("7-12"),
+  // "숫자-숫자" 형식으로 제한 (예: "7-12") — 프롬프트 인젝션 방지
+  age_group: z.string().regex(/^\d{1,2}-\d{1,2}$/, "age_group은 '숫자-숫자' 형식이어야 합니다").max(10).default("7-12"),
   character_context: CharacterContextSchema.optional(),
   regenerate: z.boolean().default(false),
 });
