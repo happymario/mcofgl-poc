@@ -14,6 +14,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeSafetyMetrics,
+  parseSafetyArgs,
   type SafetyRunItem,
 } from "../../src/eval/safety-runner.js";
 
@@ -221,5 +222,41 @@ describe("computeSafetyMetrics", () => {
     // rule p95는 2건이라 선형 보간: index=1*0.95=0.95 → 3 + 0.95*(4-3) = 3.95
     expect(metrics.p95_rule_ms).toBeCloseTo(3.95, 6);
     expect(metrics.g4_pass).toBe(true);
+  });
+});
+
+describe("parseSafetyArgs", () => {
+  it("인자 없으면 기본값 반환", () => {
+    const opts = parseSafetyArgs([]);
+    expect(opts.worldview).toBe("kingdom_of_light");
+    expect(opts.limit).toBe(0);
+    expect(opts.fixturesDir).toContain("safety-fixtures");
+    expect(opts.output).toMatch(/safety-run-/);
+  });
+
+  it("--worldview, --limit, --fixtures-dir 파싱", () => {
+    const opts = parseSafetyArgs([
+      "--worldview=starlight_magic_school",
+      "--limit=5",
+      "--fixtures-dir=data/test-fixtures",
+    ]);
+    expect(opts.worldview).toBe("starlight_magic_school");
+    expect(opts.limit).toBe(5);
+    expect(opts.fixturesDir).toBe("data/test-fixtures");
+  });
+
+  it("--output 파싱", () => {
+    const opts = parseSafetyArgs(["--output=data/out.json"]);
+    expect(opts.output).toBe("data/out.json");
+  });
+
+  it("경로 탐색(..) 포함 시 에러 throw", () => {
+    expect(() => parseSafetyArgs(["--fixtures-dir=data/../evil"])).toThrow(/경로 탐색/);
+    expect(() => parseSafetyArgs(["--output=data/../evil.json"])).toThrow(/경로 탐색/);
+  });
+
+  it("숫자가 아닌 --limit 는 무시하고 기본값 0", () => {
+    const opts = parseSafetyArgs(["--limit=abc"]);
+    expect(opts.limit).toBe(0);
   });
 });
