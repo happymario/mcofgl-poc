@@ -4,7 +4,7 @@
   "description": "우리아이갓생 PoC — LLM 세계관 변환 엔진",
   "type": "module",
   "scripts": {
-    "dev": "tsx --env-file=.env src/index.ts",
+    "dev": "tsx --env-file=.env src/api/index.ts",
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
