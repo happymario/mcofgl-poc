@@ -15,6 +15,7 @@
     "eval:run": "tsx --env-file=.env src/eval/runner.ts",
     "eval:blind": "tsx --env-file=.env src/eval/blind-generator.ts",
     "eval:match": "tsx --env-file=.env src/eval/match-runner.ts",
+    "eval:safety": "tsx --env-file=.env src/eval/safety-runner.ts",
     "seed:vectors": "tsx --env-file=.env src/scripts/seed-vectors.ts"
   },
   "dependencies": {

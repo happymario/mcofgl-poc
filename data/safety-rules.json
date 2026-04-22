@@ -1,0 +1,22 @@
+{
+  "categories": {
+    "violence": {
+      "keywords": ["살인", "죽여", "때려", "칼로", "폭발", "폭력", "공격해", "부숴", "박살"],
+      "patterns": ["\\d+명.*죽"],
+      "action": "block_and_fallback"
+    },
+    "negative_emotion": {
+      "keywords": ["자살", "죽고 싶어", "사라지고 싶어", "무가치", "쓸모없어"],
+      "action": "block_and_fallback"
+    },
+    "fear": {
+      "keywords": ["악몽", "납치", "고문", "공포에 떨게", "겁나서 도망"],
+      "action": "block_and_fallback"
+    },
+    "sexual": {
+      "keywords": ["야한", "성관계", "섹스", "포르노"],
+      "action": "block_and_fallback"
+    }
+  },
+  "allowlist": ["어둠의 안개", "몬스터", "어둠", "마왕", "용사", "전투", "마법", "마나"]
+}

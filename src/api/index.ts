@@ -10,6 +10,11 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { LightModifier } from "../core/modifier.js";
 import { QuestRetriever } from "../core/retriever.js";
+import { FallbackSelector } from "../core/safety/fallback-selector.js";
+import { LlmVerifier } from "../core/safety/llm-verifier.js";
+import { loadSafetyRules } from "../core/safety/load-safety-rules.js";
+import { SafetyFilterPipeline } from "../core/safety/pipeline.js";
+import { RuleFilter } from "../core/safety/rule-filter.js";
 import { QuestTransformer } from "../core/transformer.js";
 import { EmbeddingService } from "../core/vector/embedding.js";
 import { VectorStore } from "../core/vector/store.js";
@@ -36,7 +41,14 @@ if (supabaseUrl && supabaseServiceRoleKey && openaiApiKey) {
   const embedding = new EmbeddingService(openai, openaiEmbeddingModel);
   const store = new VectorStore(supabase);
   const modifier = new LightModifier(anthropic, haikuModel);
-  retriever = new QuestRetriever({ embedding, store, modifier, transformer });
+  const safetyRules = loadSafetyRules();
+  const ruleFilter = new RuleFilter(safetyRules);
+  const llmVerifier = new LlmVerifier(anthropic, haikuModel);
+  const fallbackSelector = new FallbackSelector(embedding, store);
+  const safetyPipeline = new SafetyFilterPipeline(ruleFilter, llmVerifier, fallbackSelector);
+  console.info("[bootstrap] SafetyFilterPipeline 활성화 — 안전 필터 적용");
+
+  retriever = new QuestRetriever({ embedding, store, modifier, transformer, safetyPipeline });
   console.info(
     "[bootstrap] QuestRetriever 활성화 — /api/quest/generate 사용 가능",
   );

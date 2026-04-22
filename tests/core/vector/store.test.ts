@@ -108,13 +108,49 @@ describe("VectorStore", () => {
         ageGroup: "5-7",
       });
 
+      // RPC 응답에 is_seed가 없으면 false로 기본 해석된다 (Task 5 RPC 확장 이전 하위 호환).
       expect(hits).toHaveLength(1);
       expect(hits[0]).toEqual({
         id: "11111111-1111-1111-1111-111111111111",
         inputText: "아침 7시 기상",
         quest: sampleQuest,
         similarity: 0.92,
+        is_seed: false,
       });
+    });
+
+    it("RPC 응답의 is_seed 컬럼을 SearchHit.is_seed로 매핑한다", async () => {
+      client.rpc.mockResolvedValueOnce({
+        data: [
+          {
+            id: "33333333-3333-3333-3333-333333333333",
+            input_text: "시드 habits",
+            quest_result: sampleQuest,
+            similarity: 0.8,
+            is_seed: true,
+          },
+          {
+            id: "44444444-4444-4444-4444-444444444444",
+            input_text: "일반 habits",
+            quest_result: sampleQuest,
+            similarity: 0.7,
+            is_seed: false,
+          },
+        ],
+        error: null,
+      });
+
+      // biome-ignore lint/suspicious/noExplicitAny: 페이크 클라이언트를 SupabaseClient로 단언
+      const store = new VectorStore(client as any);
+      const hits = await store.search({
+        embedding: new Array(1536).fill(0),
+        worldviewId: "fantasy",
+        ageGroup: "5-7",
+      });
+
+      expect(hits).toHaveLength(2);
+      expect(hits[0]?.is_seed).toBe(true);
+      expect(hits[1]?.is_seed).toBe(false);
     });
 
     it("RPC 에러 응답이 오면 Error를 throw 한다", async () => {

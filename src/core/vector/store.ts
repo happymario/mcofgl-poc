@@ -20,6 +20,9 @@ export interface SearchHit {
   inputText: string;
   quest: Quest;
   similarity: number;
+  // F-003 Task 5: is_seed=true 퀘스트를 폴백 후보로 식별하기 위한 플래그.
+  // RPC 응답에 컬럼이 없거나 null이면 false로 안전하게 해석한다.
+  is_seed: boolean;
 }
 
 const RPC_NAME = "match_quest_vectors";
@@ -55,6 +58,7 @@ export class VectorStore {
       input_text: string;
       quest_result: unknown;
       similarity: number;
+      is_seed?: boolean | null;
     }>;
 
     // JSONB → Quest 런타임 검증. 단일 행 파싱 실패 시 해당 행만 skip하고 계속 진행한다.
@@ -66,7 +70,14 @@ export class VectorStore {
         console.warn(`[VectorStore.search] 잘못된 quest_result 행 skip: id=${row.id}`, parsed.error.issues);
         continue;
       }
-      hits.push({ id: row.id, inputText: row.input_text, quest: parsed.data, similarity: row.similarity });
+      hits.push({
+        id: row.id,
+        inputText: row.input_text,
+        quest: parsed.data,
+        similarity: row.similarity,
+        // RPC가 is_seed를 반환하기 전 마이그레이션 단계에서도 안전하게 false로 해석한다.
+        is_seed: row.is_seed ?? false,
+      });
     }
     return hits;
   }

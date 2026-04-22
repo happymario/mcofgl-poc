@@ -55,6 +55,7 @@ src/scripts/
 
 supabase/migrations/
 ├── 20260421_001_quest_vectors.sql   quest_vectors 테이블 + match_quest_vectors RPC
+├── 20260421_002_add_is_seed_to_rpc.sql  match_quest_vectors RPC에 is_seed 컬럼 추가 (F-003)
 └── README.md                        수동 적용 절차 및 롤백 스니펫
 
 data/
@@ -105,7 +106,7 @@ match_quest_vectors(
   filter_worldview_id   text,
   filter_age_group      text,
   match_count           int DEFAULT 5
-) RETURNS TABLE (id, input_text, quest_result, similarity)
+) RETURNS TABLE (id, input_text, quest_result, similarity, is_seed)
 ```
 
 코사인 유사도 `1 - (embedding <=> query)` 기준 내림차순 상위 `match_count`개를 반환한다.
@@ -119,6 +120,7 @@ export interface RetrieveMeta {
   path: RoutingPath
   similarity: number | null   // llm_new 경로(후보 없음)는 null
   latency_ms: number
+  filter_result?: FilterResult  // F-003: SafetyFilterPipeline 결과 (미주입 시 undefined)
 }
 
 export interface SearchHit {
@@ -126,6 +128,7 @@ export interface SearchHit {
   inputText: string
   quest: Quest
   similarity: number
+  is_seed: boolean        // F-003: FallbackSelector seed 필터링용
 }
 ```
 
