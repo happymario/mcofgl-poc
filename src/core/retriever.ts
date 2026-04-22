@@ -16,7 +16,8 @@
 //   수정 없이 import만으로 재사용한다.
 
 import type { LightModifier } from "./modifier.js";
-import type { TransformRequest } from "./schemas/api.js";
+import type { SafetyFilterPipeline } from "./safety/pipeline.js";
+import type { FilterResult, TransformRequest } from "./schemas/api.js";
 import type { Quest } from "./schemas/quest.js";
 import type { QuestTransformer } from "./transformer.js";
 import type { EmbeddingService } from "./vector/embedding.js";
@@ -28,6 +29,9 @@ export interface RetrieveMeta {
   path: RoutingPath;
   similarity: number | null;
   latency_ms: number;
+  // F-003 Task 7 — safetyPipeline이 주입된 경우에만 설정된다.
+  // vector_exact 경로는 저장된(승인된) 퀘스트를 재사용하므로 필터링 대상이 아니어서 undefined.
+  filter_result?: FilterResult;
 }
 
 export interface RetrieveResult {
@@ -46,6 +50,10 @@ export interface RetrieverDeps {
   modifier: LightModifier;
   transformer: QuestTransformer;
   thresholds?: RetrieverThresholds;
+  // F-003 Task 7 — Safety Filter 파이프라인 (optional).
+  // 주입되면 llm_new / vector_modify 경로의 출력에 apply()를 적용한다.
+  // 주입되지 않으면 F-002와 동일하게 동작한다 (하위 호환).
+  safetyPipeline?: SafetyFilterPipeline;
 }
 
 // 스펙 §3.1 기본 경로 분기 임계값.
@@ -101,6 +109,27 @@ export class QuestRetriever {
         ageGroup: req.age_group,
         baseQuest: topHit.quest,
       });
+
+      // F-003 Task 7 — safetyPipeline 주입 시 modifier 출력에 필터 적용.
+      // vector_modify는 원래 store.save를 호출하지 않으므로 blocked 분기에서도 저장 스킵 동작은 기존과 동일.
+      if (this.deps.safetyPipeline) {
+        const filtered = await this.deps.safetyPipeline.apply({
+          quest: modified,
+          habitText: req.habit_text,
+          worldviewId: req.worldview_id,
+          ageGroup: req.age_group,
+        });
+        return {
+          quest: filtered.quest,
+          meta: {
+            path,
+            similarity,
+            latency_ms: Date.now() - start,
+            filter_result: filtered.filter_result,
+          },
+        };
+      }
+
       return {
         quest: modified,
         meta: { path, similarity, latency_ms: Date.now() - start },
@@ -109,6 +138,44 @@ export class QuestRetriever {
 
     // llm_new: 신규 생성 + Vector DB 자동 저장.
     const transformed = await this.deps.transformer.transform(req);
+
+    // F-003 Task 7 — safetyPipeline 주입 시 LLM 생성 결과에 필터 적용.
+    // blocked=true일 때는 차단된 원본 퀘스트가 Vector DB에 영구 저장되지 않도록 save를 스킵한다.
+    // safe일 때는 파이프라인 출력 quest(원본 또는 치환된 퀘스트)를 저장한다.
+    if (this.deps.safetyPipeline) {
+      const filtered = await this.deps.safetyPipeline.apply({
+        quest: transformed.quest,
+        habitText: req.habit_text,
+        worldviewId: req.worldview_id,
+        ageGroup: req.age_group,
+      });
+
+      if (!filtered.filter_result.blocked) {
+        try {
+          await this.deps.store.save({
+            inputText: req.habit_text,
+            worldviewId: req.worldview_id,
+            ageGroup: req.age_group,
+            embedding,
+            quest: filtered.quest,
+          });
+        } catch (cause) {
+          console.warn("[QuestRetriever] Vector DB save failed (ignored):", cause);
+        }
+      }
+
+      return {
+        quest: filtered.quest,
+        meta: {
+          path: "llm_new",
+          similarity,
+          latency_ms: Date.now() - start,
+          filter_result: filtered.filter_result,
+        },
+      };
+    }
+
+    // safetyPipeline 미주입 — F-002 동작 그대로.
     // 저장 실패는 삼킨다 — 사용자 응답은 성공으로 반환.
     // 1단계의 embedding을 재사용해 재임베딩 비용을 방지한다.
     try {

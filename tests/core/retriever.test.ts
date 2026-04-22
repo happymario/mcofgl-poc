@@ -14,7 +14,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmbeddingService } from "../../src/core/vector/embedding.js";
 import type { LightModifier } from "../../src/core/modifier.js";
 import { QuestRetriever } from "../../src/core/retriever.js";
-import type { TransformRequest } from "../../src/core/schemas/api.js";
+import type { SafetyFilterPipeline } from "../../src/core/safety/pipeline.js";
+import type { FilterResult, TransformRequest } from "../../src/core/schemas/api.js";
 import type { Quest } from "../../src/core/schemas/quest.js";
 import type { QuestTransformer } from "../../src/core/transformer.js";
 import type { SearchHit, VectorStore } from "../../src/core/vector/store.js";
@@ -261,5 +262,197 @@ describe("QuestRetriever", () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  // F-003 Task 7 — safetyPipeline 주입 시의 동작 검증.
+  //
+  // 설계 계약:
+  // - vector_exact 경로는 기존 저장된 퀘스트(이미 승인된 안전한 콘텐츠)를 재사용하므로
+  //   필터링 대상이 아니다. safetyPipeline이 주입되어 있어도 호출하지 않는다.
+  // - llm_new / vector_modify 경로의 출력은 LLM이 새로 생성/수정한 텍스트이므로
+  //   safetyPipeline.apply()를 경유한다.
+  // - blocked=true일 때 llm_new 경로는 store.save를 스킵한다 (차단된 퀘스트가
+  //   Vector DB에 영구 저장되지 않도록).
+  describe("safetyPipeline 주입", () => {
+    const FALLBACK_QUEST: Quest = {
+      ...STORED_QUEST,
+      quest_name: "범용 폴백 퀘스트",
+      description: "안전한 대체 퀘스트.",
+      original_habit: "폴백",
+    };
+
+    const REPLACED_QUEST: Quest = {
+      ...MODIFIED_QUEST,
+      quest_name: "치환된 퀘스트",
+      description: "룰에 의해 대체어가 적용된 퀘스트.",
+    };
+
+    function buildSafeFilterResult(): FilterResult {
+      return {
+        stage: "llm",
+        verdict: "safe",
+        blocked: false,
+        latency_ms: 1,
+      };
+    }
+
+    function buildBlockedFilterResult(): FilterResult {
+      return {
+        stage: "llm",
+        verdict: "unsafe",
+        blocked: true,
+        latency_ms: 2,
+      };
+    }
+
+    function buildReplacedFilterResult(): FilterResult {
+      return {
+        stage: "rule",
+        verdict: "replaced",
+        blocked: false,
+        latency_ms: 1,
+      };
+    }
+
+    function buildRetrieverWithPipeline(
+      fakes: ReturnType<typeof buildFakes>,
+      pipeline: SafetyFilterPipeline,
+    ): QuestRetriever {
+      return new QuestRetriever({
+        embedding: fakes.embedding as unknown as EmbeddingService,
+        store: fakes.store as unknown as VectorStore,
+        modifier: fakes.modifier as unknown as LightModifier,
+        transformer: fakes.transformer as unknown as QuestTransformer,
+        safetyPipeline: pipeline,
+      });
+    }
+
+    it("vector_exact → safetyPipeline.apply가 호출되지 않는다", async () => {
+      fakes.store.search.mockResolvedValueOnce([makeHit(0.95)]);
+      const mockPipelineApply = vi.fn();
+      const fakePipeline = {
+        apply: mockPipelineApply,
+      } as unknown as SafetyFilterPipeline;
+
+      const result = await buildRetrieverWithPipeline(fakes, fakePipeline).retrieve(
+        BASE_REQUEST,
+      );
+
+      expect(result.meta.path).toBe("vector_exact");
+      expect(mockPipelineApply).not.toHaveBeenCalled();
+      // filter_result는 적용되지 않은 vector_exact 경로에서는 undefined로 남아야 한다.
+      expect(result.meta.filter_result).toBeUndefined();
+    });
+
+    it("llm_new + safe → meta.filter_result.verdict=safe, 파이프라인 출력 quest가 store.save에 전달된다", async () => {
+      fakes.store.search.mockResolvedValueOnce([]);
+      fakes.transformer.transform.mockResolvedValueOnce({
+        quest: GENERATED_QUEST,
+        meta: { model: "test", latency_ms: 0, prompt_tokens: 0, completion_tokens: 0 },
+      });
+
+      const mockPipelineApply = vi.fn().mockResolvedValue({
+        quest: GENERATED_QUEST,
+        filter_result: buildSafeFilterResult(),
+      });
+      const fakePipeline = {
+        apply: mockPipelineApply,
+      } as unknown as SafetyFilterPipeline;
+
+      const result = await buildRetrieverWithPipeline(fakes, fakePipeline).retrieve(
+        BASE_REQUEST,
+      );
+
+      expect(result.meta.path).toBe("llm_new");
+      expect(result.meta.filter_result).toBeDefined();
+      expect(result.meta.filter_result?.verdict).toBe("safe");
+      expect(result.meta.filter_result?.blocked).toBe(false);
+      expect(result.quest).toEqual(GENERATED_QUEST);
+
+      // 파이프라인 입력 스냅샷: snake_case/camelCase 경계 확인.
+      expect(mockPipelineApply).toHaveBeenCalledTimes(1);
+      expect(mockPipelineApply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quest: GENERATED_QUEST,
+          habitText: BASE_REQUEST.habit_text,
+          worldviewId: BASE_REQUEST.worldview_id,
+          ageGroup: BASE_REQUEST.age_group,
+        }),
+      );
+
+      // safe 경로에서는 파이프라인이 반환한 quest로 저장되어야 한다.
+      expect(fakes.store.save).toHaveBeenCalledTimes(1);
+      expect(fakes.store.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quest: GENERATED_QUEST,
+          embedding: EMBED_VECTOR,
+        }),
+      );
+    });
+
+    it("llm_new + blocked → fallback quest 반환, meta.filter_result.blocked=true, store.save 미호출", async () => {
+      fakes.store.search.mockResolvedValueOnce([]);
+      fakes.transformer.transform.mockResolvedValueOnce({
+        quest: GENERATED_QUEST,
+        meta: { model: "test", latency_ms: 0, prompt_tokens: 0, completion_tokens: 0 },
+      });
+
+      const mockPipelineApply = vi.fn().mockResolvedValue({
+        quest: FALLBACK_QUEST,
+        filter_result: buildBlockedFilterResult(),
+      });
+      const fakePipeline = {
+        apply: mockPipelineApply,
+      } as unknown as SafetyFilterPipeline;
+
+      const result = await buildRetrieverWithPipeline(fakes, fakePipeline).retrieve(
+        BASE_REQUEST,
+      );
+
+      expect(result.meta.path).toBe("llm_new");
+      expect(result.quest).toEqual(FALLBACK_QUEST);
+      expect(result.meta.filter_result?.blocked).toBe(true);
+      expect(result.meta.filter_result?.verdict).toBe("unsafe");
+
+      expect(mockPipelineApply).toHaveBeenCalledTimes(1);
+      // 차단된 퀘스트는 Vector DB에 저장되지 않아야 한다.
+      expect(fakes.store.save).toHaveBeenCalledTimes(0);
+    });
+
+    it("vector_modify + replaced → 파이프라인이 치환한 quest 반환, filter_result.verdict=replaced", async () => {
+      const topHit = makeHit(0.82);
+      fakes.store.search.mockResolvedValueOnce([topHit]);
+      fakes.modifier.modify.mockResolvedValueOnce(MODIFIED_QUEST);
+
+      const mockPipelineApply = vi.fn().mockResolvedValue({
+        quest: REPLACED_QUEST,
+        filter_result: buildReplacedFilterResult(),
+      });
+      const fakePipeline = {
+        apply: mockPipelineApply,
+      } as unknown as SafetyFilterPipeline;
+
+      const result = await buildRetrieverWithPipeline(fakes, fakePipeline).retrieve(
+        BASE_REQUEST,
+      );
+
+      expect(result.meta.path).toBe("vector_modify");
+      // 파이프라인이 돌려준 치환된 quest가 반환되어야 한다 (modifier 출력이 아님).
+      expect(result.quest).toEqual(REPLACED_QUEST);
+      expect(result.meta.filter_result?.verdict).toBe("replaced");
+      expect(result.meta.filter_result?.blocked).toBe(false);
+
+      expect(mockPipelineApply).toHaveBeenCalledTimes(1);
+      expect(mockPipelineApply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quest: MODIFIED_QUEST,
+          habitText: BASE_REQUEST.habit_text,
+          worldviewId: BASE_REQUEST.worldview_id,
+          ageGroup: BASE_REQUEST.age_group,
+        }),
+      );
+      // vector_modify는 store.save를 호출하지 않는다 (기존 계약 유지).
+      expect(fakes.store.save).not.toHaveBeenCalled();
+    });
   });
 });
