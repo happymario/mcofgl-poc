@@ -157,6 +157,20 @@ describe("RuleFilter.check", () => {
     }
   });
 
+  it("9) reward.buff에만 차단 키워드가 있으면 block_and_fallback", () => {
+    const filter = new RuleFilter(testRules);
+    const quest = makeQuest({
+      quest_name: "아침 운동",
+      description: "건강한 아침을 시작한다",
+      reward: { exp: 10, coin: 5, buff: "살인의 기운 +1" },
+    });
+
+    const result = filter.check(quest);
+
+    expect(result.verdict).toBe("block_and_fallback");
+    expect(result.category).toBe("violence");
+  });
+
   // 추가 검증: allowlist stripping 로직이 실제로 키워드 매칭을 제거하는지 확인.
   // testRules의 "어둠"은 카테고리 키워드가 아니므로 기본 케이스 5만으로는 allowlist
   // stripping 경로를 증명하지 못한다. 아래 보강 테스트는 allowlist 항목을 동시에

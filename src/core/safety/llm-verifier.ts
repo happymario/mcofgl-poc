@@ -58,7 +58,11 @@ function extractText(message: Anthropic.Messages.Message): string {
 }
 
 function buildUserMessage(quest: Quest, ageGroup: string): string {
-  return `연령대: ${ageGroup}\n퀘스트명: ${quest.quest_name}\n설명: ${quest.description}`;
+  const parts = [`연령대: ${ageGroup}`, `퀘스트명: ${quest.quest_name}`, `설명: ${quest.description}`];
+  if (quest.reward.buff) {
+    parts.push(`보상 설명: ${quest.reward.buff}`);
+  }
+  return parts.join("\n");
 }
 
 export class LlmVerifier {

@@ -1,10 +1,11 @@
 // 스펙 §F-003 — Safety Filter Layer 1: 룰 기반 차단/치환 엔진.
 //
-// 입력: Quest (quest_name + description)
+// 입력: Quest (quest_name + description + reward.buff)
 // 출력: RuleFilterResult — pass / replaced / block_and_fallback
 //
 // 처리 순서:
-// 1) 검사 텍스트 생성: `quest_name + "\n" + description`
+// 1) 검사 텍스트 생성: `quest_name + "\n" + description + "\n" + reward.buff`
+//    reward.buff는 API 응답에 포함되는 사용자 노출 필드이므로 검사 대상에 포함한다.
 // 2) allowlist 항목을 빈 문자열로 치환해 "정당한 RPG 어휘"를 매칭에서 제외
 //    (긴 항목부터 제거해 "어둠의 안개" > "어둠" 순서 불변성 유지)
 // 3) block_and_fallback 카테고리의 키워드/패턴 매칭 → 히트 시 즉시 차단
@@ -50,7 +51,8 @@ export class RuleFilter {
   check(quest: Quest): RuleFilterResult {
     const t0 = performance.now();
 
-    const scanText = `${quest.quest_name}\n${quest.description}`;
+    const buff = quest.reward.buff ?? "";
+    const scanText = `${quest.quest_name}\n${quest.description}${buff ? `\n${buff}` : ""}`;
     const strippedText = this.stripAllowlist(scanText);
 
     // Phase 1: block_and_fallback 카테고리 1차 검사
