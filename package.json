@@ -13,7 +13,8 @@
     "lint": "biome check src",
     "validate:worldviews": "tsx scripts/validate-worldviews.ts",
     "eval:run": "tsx --env-file=.env src/eval/runner.ts",
-    "eval:blind": "tsx --env-file=.env src/eval/blind-generator.ts"
+    "eval:blind": "tsx --env-file=.env src/eval/blind-generator.ts",
+    "seed:vectors": "tsx --env-file=.env src/scripts/seed-vectors.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
