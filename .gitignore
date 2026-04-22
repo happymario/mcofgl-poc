@@ -1,18 +1,3 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-*.egg-info/
-dist/
-build/
-.eggs/
-
-# Virtual Environment
-.venv/
-venv/
-env/
-
 # IDE
 .vscode/
 .idea/
@@ -36,19 +21,26 @@ Thumbs.db
 *.log
 logs/
 
-# Test & Coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-
-# Node (if needed)
+# Node
 node_modules/
+dist/
 
-# Data (large files)
-data/cache/
-*.pkl
-*.parquet
+# TypeScript build
+*.tsbuildinfo
+
+# Test & Coverage
+coverage/
+
+# Evaluation runs and artifacts (generated files)
+data/evaluations/run-*.json
+data/evaluations/*.answers.json
+data/evaluations/*.csv
+
+# Scripts build artifacts (tsx로 직접 실행; 빌드 산출물 불필요)
+scripts/*.js
+scripts/*.js.map
+scripts/*.d.ts
+scripts/*.d.ts.map
 
 # BEGIN harness local ignores
 .harness-backups/
