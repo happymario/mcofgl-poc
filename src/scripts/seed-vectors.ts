@@ -19,6 +19,7 @@
 //   동작하도록, env 검증/클라이언트 생성은 dry-run 분기 이후에 수행한다.
 
 import { readFileSync, readdirSync } from "node:fs";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { EmbeddingService } from "../core/vector/embedding.js";
@@ -206,6 +207,63 @@ export async function runSeedVectors(args: ParsedArgs): Promise<void> {
   }
 
   console.error(`시드 적재 완료: 성공 ${succeeded}건, 실패 ${failed}건`);
+
+  // F-003 OQ-2 — worldview × age_group 조합별 is_seed=true 최소 1건 존재 검증.
+  await verifySeedCoverage(supabase, seedTargets.map((it) => ({
+    worldviewId: it.worldviewId,
+    ageGroup: DEFAULT_AGE_GROUP,
+  })));
+}
+
+interface CombinationKey {
+  worldviewId: string;
+  ageGroup: string;
+}
+
+async function verifySeedCoverage(
+  supabase: SupabaseClient,
+  combinations: CombinationKey[],
+): Promise<void> {
+  // 중복 제거
+  const unique = new Map<string, CombinationKey>();
+  for (const c of combinations) {
+    unique.set(`${c.worldviewId}::${c.ageGroup}`, c);
+  }
+
+  const shortfall: string[] = [];
+
+  for (const [, combo] of unique) {
+    const { count, error } = await supabase
+      .from("quest_vectors")
+      .select("id", { count: "exact", head: true })
+      .eq("worldview_id", combo.worldviewId)
+      .eq("age_group", combo.ageGroup)
+      .eq("is_seed", true);
+
+    if (error) {
+      console.error(
+        `[seed] is_seed 검증 쿼리 실패 (${combo.worldviewId}/${combo.ageGroup}): ${error.message}`,
+      );
+      continue;
+    }
+
+    if ((count ?? 0) < 1) {
+      shortfall.push(`${combo.worldviewId}/${combo.ageGroup}`);
+    }
+  }
+
+  if (shortfall.length > 0) {
+    console.error(
+      `[seed] 경고: is_seed=true 퀘스트 부족 조합 ${shortfall.length}개 — ${shortfall.join(", ")}`,
+    );
+    console.error(`검증 결과: 부족 조합 ${shortfall.length}개`);
+    process.exitCode = 2;
+  } else {
+    console.error(
+      `[seed] is_seed 커버리지 검증 통과 — 전체 ${unique.size}개 조합 is_seed=true 최소 1건 확인`,
+    );
+    console.error(`검증 결과: 부족 조합 0개`);
+  }
 }
 
 // CLI 진입점 — runner.ts와 동일한 import-safe 가드.
