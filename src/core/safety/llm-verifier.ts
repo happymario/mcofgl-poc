@@ -30,6 +30,9 @@ export interface LlmVerifierResult {
 // JSON 한 줄(`{"verdict":"...","reason":"..."}`)이면 128 토큰으로 충분하다.
 const MAX_TOKENS = 128;
 
+// 단일 LLM 호출 상한. 초과 시 AbortError → 기존 fail-closed 분기로 처리된다.
+const CALL_TIMEOUT_MS = 4000;
+
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 const SYSTEM_PROMPT = `당신은 아동(7~12세) 대상 퀘스트 안전성 평가자입니다.
@@ -68,12 +71,15 @@ export class LlmVerifier {
     const start = performance.now();
 
     try {
-      const response = await this.client.messages.create({
-        model: this.model,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: buildUserMessage(quest, ageGroup) }],
-      });
+      const response = await this.client.messages.create(
+        {
+          model: this.model,
+          max_tokens: MAX_TOKENS,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: buildUserMessage(quest, ageGroup) }],
+        },
+        { timeout: CALL_TIMEOUT_MS },
+      );
 
       const rawText = extractText(response);
       const unwrapped = stripCodeFence(rawText);

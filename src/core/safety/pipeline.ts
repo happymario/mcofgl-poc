@@ -58,8 +58,10 @@ export class SafetyFilterPipeline {
         worldviewId,
         ageGroup,
       });
+      // F-001 계약: original_habit/worldview_id는 항상 현재 요청값으로 강제 주입.
+      // 폴백 퀘스트의 저장된 필드와 현재 사용자 요청이 혼동되지 않도록 보장한다.
       return {
-        quest: fallbackQuest,
+        quest: { ...fallbackQuest, original_habit: habitText, worldview_id: worldviewId },
         filter_result: {
           stage: "rule",
           verdict: "unsafe",
@@ -122,8 +124,9 @@ export class SafetyFilterPipeline {
       ageGroup,
     });
 
+    // F-001 계약: original_habit/worldview_id는 항상 현재 요청값으로 강제 주입.
     return {
-      quest: fallbackQuest,
+      quest: { ...fallbackQuest, original_habit: habitText, worldview_id: worldviewId },
       filter_result: {
         stage: "llm",
         verdict: llmResult.verdict,

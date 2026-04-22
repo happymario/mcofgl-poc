@@ -106,7 +106,10 @@ describe("SafetyFilterPipeline.apply", () => {
       ageGroup: "7-12",
     });
 
-    expect(result.quest).toBe(fallbackQuest);
+    // 폴백 퀘스트는 original_habit/worldview_id가 현재 요청값으로 오버라이드된 새 객체.
+    expect(result.quest).toEqual({ ...fallbackQuest, original_habit: "아침 7시 기상", worldview_id: "kingdom_of_light" });
+    expect(result.quest.original_habit).toBe("아침 7시 기상");
+    expect(result.quest.worldview_id).toBe("kingdom_of_light");
     expect(result.filter_result.stage).toBe("rule");
     expect(result.filter_result.verdict).toBe("unsafe");
     expect(result.filter_result.blocked).toBe(true);
@@ -212,7 +215,10 @@ describe("SafetyFilterPipeline.apply", () => {
       ageGroup: "7-12",
     });
 
-    expect(result.quest).toBe(fallbackQuest);
+    // 폴백 퀘스트는 original_habit/worldview_id가 현재 요청값으로 오버라이드된 새 객체.
+    expect(result.quest.original_habit).toBe("저녁 양치");
+    expect(result.quest.worldview_id).toBe("kingdom_of_light");
+    expect(result.quest.quest_name).toBe("안전 폴백");
     expect(result.filter_result.stage).toBe("llm");
     expect(result.filter_result.verdict).toBe("unsafe");
     expect(result.filter_result.blocked).toBe(true);
@@ -240,7 +246,10 @@ describe("SafetyFilterPipeline.apply", () => {
     });
 
     expect(fallbackSelect).toHaveBeenCalledTimes(1);
-    expect(result.quest).toBe(fallbackQuest);
+    // 폴백 퀘스트는 original_habit/worldview_id가 현재 요청값으로 오버라이드된 새 객체.
+    expect(result.quest.original_habit).toBe("아침 7시 기상");
+    expect(result.quest.worldview_id).toBe("kingdom_of_light");
+    expect(result.quest.quest_name).toBe("안전 폴백");
     expect(result.filter_result.stage).toBe("llm");
     expect(result.filter_result.verdict).toBe("borderline");
     expect(result.filter_result.blocked).toBe(true);
