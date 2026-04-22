@@ -56,6 +56,19 @@ export type TransformResponse = z.infer<typeof TransformResponseSchema>;
 // 그대로 전달할 수 있도록 한다. meta는 경로 분기 결과(path/similarity/latency_ms)를 노출한다.
 export const GenerateRequestSchema = TransformRequestSchema;
 
+// F-003 Task 1 — Safety Filter 결과 스키마.
+// stage: rule(1차 키워드 기반) | llm(2차 LLM 판정)
+// verdict: safe(통과) | unsafe(차단) | borderline(경계) | replaced(대체 생성)
+// latency_ms는 필터 전체 지연, rule_latency_ms/llm_latency_ms는 단계별 세부 지연(optional).
+export const FilterResultSchema = z.object({
+  stage: z.enum(["rule", "llm"]),
+  verdict: z.enum(["safe", "unsafe", "borderline", "replaced"]),
+  blocked: z.boolean(),
+  latency_ms: z.number(),
+  rule_latency_ms: z.number().optional(),
+  llm_latency_ms: z.number().optional(),
+});
+
 export const GenerateResponseMetaSchema = z.object({
   // QuestRetriever.route가 결정한 경로 — 스펙 §3.1 경로 분기와 일치.
   path: z.enum(["vector_exact", "vector_modify", "llm_new"]),
@@ -63,6 +76,8 @@ export const GenerateResponseMetaSchema = z.object({
   similarity: z.number().nullable(),
   // embed + search + (modify|transform) 전 구간 합산 지연.
   latency_ms: z.number(),
+  // F-003 Safety Filter 결과 — 필터 미적용 응답과의 하위 호환을 위해 optional.
+  filter_result: FilterResultSchema.optional(),
 });
 
 export const GenerateResponseSchema = z.object({
@@ -74,3 +89,8 @@ export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
 export type GenerateRequestInput = z.input<typeof GenerateRequestSchema>;
 export type GenerateResponseMeta = z.infer<typeof GenerateResponseMetaSchema>;
 export type GenerateResponse = z.infer<typeof GenerateResponseSchema>;
+
+// F-003 Task 1 — Safety Filter 관련 타입.
+export type FilterResult = z.infer<typeof FilterResultSchema>;
+export type FilterStage = FilterResult["stage"];
+export type FilterVerdict = FilterResult["verdict"];
