@@ -32,14 +32,13 @@ COMMENT ON TABLE public.quest_vectors IS
   '서버 전용 테이블. service_role 키로만 접근. '
   'anon/authenticated 역할에 노출 전 반드시 RLS 정책 추가 필요.';
 
--- 코사인 유사도 검색 인덱스 (ivfflat)
--- lists=10: PoC 규모(~100건)에서 sqrt(count)≈10 기준.
--- 수백만 건 규모가 되면 lists = rows/1000 또는 sqrt(rows)로 재조정 후 REINDEX 필요.
--- 주의: 인덱스는 빈 테이블에 생성됨. 시드 데이터 적재(npm run seed:vectors) 후
--- 반드시 REINDEX INDEX idx_quest_vectors_embedding; 를 실행해 centroid를 재학습할 것.
-CREATE INDEX IF NOT EXISTS idx_quest_vectors_embedding
-  ON public.quest_vectors USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 10);
+-- ivfflat 인덱스는 PoC(~100건) 규모에서 생성에 ~60MB maintenance_work_mem이 필요하며
+-- Supabase 기본값(32MB)을 초과한다. 100건 이하에서는 sequential scan이 더 빠르므로 제외.
+-- 수천 건 이상으로 데이터가 늘어나면 아래 SQL로 별도 생성:
+--   SET maintenance_work_mem = '128MB';
+--   CREATE INDEX idx_quest_vectors_embedding
+--     ON public.quest_vectors USING ivfflat (embedding vector_cosine_ops)
+--     WITH (lists = 100);
 
 -- 사전 필터 인덱스 (worldview_id + age_group 조합)
 -- match_quest_vectors RPC의 WHERE 조건에 대응
