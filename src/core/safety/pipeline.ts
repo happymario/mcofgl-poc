@@ -18,7 +18,7 @@
 // - filter_result.llm_latency_ms: LlmVerifier.verify 결과의 latency_ms passthrough
 //                                 (LLM 미호출 경로에서는 undefined)
 
-import { type FilterResult } from "../schemas/api.js";
+import type { FilterResult } from "../schemas/api.js";
 import type { Quest } from "../schemas/quest.js";
 import type { FallbackSelector } from "./fallback-selector.js";
 import type { LlmVerifier } from "./llm-verifier.js";

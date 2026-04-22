@@ -262,7 +262,7 @@ async function verifySeedCoverage(
     console.error(
       `[seed] is_seed 커버리지 검증 통과 — 전체 ${unique.size}개 조합 is_seed=true 최소 1건 확인`,
     );
-    console.error(`검증 결과: 부족 조합 0개`);
+    console.error("검증 결과: 부족 조합 0개");
   }
 }
 
