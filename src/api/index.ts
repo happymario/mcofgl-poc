@@ -18,8 +18,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Redis } from "ioredis";
 import OpenAI from "openai";
 import { RedisCache } from "../core/cache.js";
-import { IntegratedPipeline } from "../core/pipeline.js";
 import { LightModifier } from "../core/modifier.js";
+import { IntegratedPipeline } from "../core/pipeline.js";
 import { QuestRetriever } from "../core/retriever.js";
 import { FallbackSelector } from "../core/safety/fallback-selector.js";
 import { LlmVerifier } from "../core/safety/llm-verifier.js";
@@ -51,15 +51,15 @@ if (missing.length > 0) {
 const anthropic = new Anthropic();
 const openai = new OpenAI();
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  process.env.SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string,
   { auth: { persistSession: false } },
 );
 
 // ── 모델 식별자 ──────────────────────────────────────────────────────────────
 
 const haikuModel = process.env.CLAUDE_MODEL_HAIKU ?? "claude-haiku-4-5-20251001";
-const embeddingModel = process.env.OPENAI_EMBEDDING_MODEL!;
+const embeddingModel = process.env.OPENAI_EMBEDDING_MODEL as string;
 
 // ── 코어 서비스 조립 ─────────────────────────────────────────────────────────
 
@@ -108,7 +108,9 @@ try {
   cache = new RedisCache(redis);
   console.info("[bootstrap] Redis 연결 성공");
 } catch (cause) {
-  console.warn("[bootstrap] Redis 연결 실패 — 캐시 없이 계속:", cause);
+  // cause 전체 출력 시 URL에 자격증명이 포함될 수 있어 message만 출력한다.
+  const msg = cause instanceof Error ? cause.message : String(cause);
+  console.warn("[bootstrap] Redis 연결 실패 — 캐시 없이 계속:", msg);
   if (redis) {
     redis.disconnect();
     redis = undefined;

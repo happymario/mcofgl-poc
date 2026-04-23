@@ -11,6 +11,7 @@
 
 import { createHash } from "node:crypto";
 import type { Redis } from "ioredis";
+import { QuestSchema } from "./schemas/quest.js";
 import type { Quest } from "./schemas/quest.js";
 
 export function buildCacheKey(params: {
@@ -31,8 +32,9 @@ export class RedisCache {
       const raw = await this.client.get(key);
       if (!raw) return null;
       const parsed: unknown = JSON.parse(raw);
-      // PoC 단순화: QuestSchema 재검증 없이 캐스팅. 손상된 JSON은 catch로 흡수.
-      return parsed as Quest;
+      const result = QuestSchema.safeParse(parsed);
+      // 스키마 위반(캐시 포이즈닝 방어) → MISS로 취급.
+      return result.success ? result.data : null;
     } catch {
       return null;
     }

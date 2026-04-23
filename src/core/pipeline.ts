@@ -32,7 +32,8 @@
 // - timeoutMs는 retriever와 transformer 각각에 신선하게 적용된다(잔여 budget 사용 안 함).
 //   PoC 단계의 단순화. retriever는 AbortSignal을 받지 않으므로 Promise.race로 타임아웃만 강제.
 
-import { buildCacheKey, type RedisCache } from "./cache.js";
+import { estimateCostUsd } from "../config.js";
+import { type RedisCache, buildCacheKey } from "./cache.js";
 import type { QuestRetriever } from "./retriever.js";
 import type { FallbackSelector } from "./safety/fallback-selector.js";
 import type { SafetyFilterPipeline } from "./safety/pipeline.js";
@@ -43,7 +44,6 @@ import type {
 } from "./schemas/api.js";
 import type { Quest } from "./schemas/quest.js";
 import type { QuestTransformer } from "./transformer.js";
-import { estimateCostUsd } from "../config.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -98,8 +98,10 @@ export class IntegratedPipeline {
     if (!req.regenerate && this.deps.cache) {
       const cached = await this.safeGet(key);
       if (cached) {
+        // F-001 계약: 캐시 키 정의가 변경되어도 original_habit/worldview_id가
+        // 항상 현재 요청값을 반영하도록 방어적으로 강제 주입한다.
         return this.compose({
-          quest: cached,
+          quest: { ...cached, original_habit: req.habit_text, worldview_id: req.worldview_id },
           processing_path: "cache",
           safety_check: "passed",
           similarity_score: null,
@@ -178,8 +180,8 @@ export class IntegratedPipeline {
         completion_tokens: usage?.completion_tokens ?? 0,
         start,
       });
-    } catch {
-      // retriever 실패 → graceful degradation 단계로 진입.
+    } catch (cause) {
+      console.warn("[IntegratedPipeline] retriever 실패 → 복구 경로 진입:", cause);
       return await this.recoverViaTransformer(req, start);
     }
   }
@@ -190,11 +192,11 @@ export class IntegratedPipeline {
     start: number,
   ): Promise<GenerateResponse> {
     const signal = AbortSignal.timeout(this.timeoutMs);
-    let transformed;
+    let transformed: Awaited<ReturnType<typeof this.deps.transformer.transform>>;
     try {
       transformed = await this.deps.transformer.transform(req, { signal });
-    } catch {
-      // transformer마저 실패 → 빌트인 폴백.
+    } catch (cause) {
+      console.warn("[IntegratedPipeline] transformer 직접 호출 실패 → fallback:", cause);
       return await this.fallbackResponse(req, start);
     }
 
