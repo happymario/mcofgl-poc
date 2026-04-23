@@ -3,14 +3,13 @@
 // 처리 흐름:
 // 1) RuleFilter.check(quest)
 //    - block_and_fallback → 즉시 FallbackSelector 호출 (LlmVerifier 스킵: 비용 절감)
-//    - replaced → replacedQuest를 LlmVerifier로 2차 검증
+//    - replaced → replacedQuest 즉시 반환 (LlmVerifier 스킵: 룰 치환만으로 안전 보장)
 //    - pass → 원본 quest를 LlmVerifier로 2차 검증
-// 2) LlmVerifier.verify(quest, ageGroup)
-//    - safe + (rule=replaced) → verdict="replaced", blocked=false, 치환된 quest 반환
-//    - safe + (rule=pass)      → verdict="safe", blocked=false, 원본 quest 반환
-//    - unsafe                   → FallbackSelector + verdict="unsafe" + blocked=true
-//    - borderline               → FallbackSelector + verdict="borderline" + blocked=true
-//                                 (borderline은 모니터링용 console.warn 로그 추가)
+// 2) LlmVerifier.verify(quest, ageGroup) — pass 경로에서만 호출
+//    - safe        → verdict="safe", blocked=false, 원본 quest 반환
+//    - unsafe      → FallbackSelector + verdict="unsafe" + blocked=true
+//    - borderline  → FallbackSelector + verdict="borderline" + blocked=true
+//                    (borderline은 모니터링용 console.warn 로그 추가)
 //
 // latency 계측:
 // - filter_result.latency_ms: apply() 전체 wall-time (performance.now 차분)
@@ -72,32 +71,38 @@ export class SafetyFilterPipeline {
       };
     }
 
-    // Branch B/C: replaced는 replacedQuest로, pass는 원본으로 LlmVerifier 진입.
-    const candidateQuest: Quest =
-      ruleResult.verdict === "replaced" && ruleResult.replacedQuest
-        ? ruleResult.replacedQuest
-        : quest;
+    // Branch B: 룰이 안전 치환에 성공 → LlmVerifier를 건너뛰고 치환된 quest를 즉시 반환.
+    // 룰의 replace 카테고리는 사전 검증된 안전 매핑을 사용하므로 추가 LLM 검증이 불필요하다.
+    // RuleFilter 계약: verdict="replaced"이면 replacedQuest는 반드시 non-null.
+    // 가드 조건이 false이면(replacedQuest 미존재) Branch C로 흘러 LlmVerifier를 거친다.
+    //
+    // ⚠ 주의 (안전 유지 조건): replace 카테고리를 safety-rules.json에 추가할 때는
+    // 해당 카테고리의 치환 매핑이 SYSTEM_PROMPT에 정의된 신규 기준(경쟁 심리·약점 공략 등)을
+    // 위반하지 않음을 사전 검증해야 한다. Branch B는 LlmVerifier를 거치지 않으므로
+    // SYSTEM_PROMPT 기준에 의한 2차 필터링이 적용되지 않는다.
+    if (ruleResult.verdict === "replaced" && ruleResult.replacedQuest) {
+      // F-001 계약: original_habit / worldview_id는 항상 현재 요청값으로 강제 주입한다.
+      // RuleFilter의 replacedQuest는 원본 quest에서 합성되므로 실질적으로 동일하나,
+      // Block_and_fallback / unsafe 분기와의 방어적 일관성을 위해 명시적으로 덮어쓴다.
+      return {
+        quest: { ...ruleResult.replacedQuest, original_habit: habitText, worldview_id: worldviewId },
+        filter_result: {
+          stage: "rule",
+          verdict: "replaced",
+          blocked: false,
+          latency_ms: performance.now() - start,
+          rule_latency_ms: ruleResult.latency_ms,
+        },
+      };
+    }
 
-    const llmResult = await this.llmVerifier.verify(candidateQuest, ageGroup);
+    // Branch C: pass → 원본 quest를 LlmVerifier로 2차 검증.
+    const llmResult = await this.llmVerifier.verify(quest, ageGroup);
 
     if (llmResult.verdict === "safe") {
-      // 룰에서 치환이 일어났으면 stage="rule" + verdict="replaced"로 보고.
-      // 치환 없음(pass)이면 stage="llm" + verdict="safe".
-      if (ruleResult.verdict === "replaced") {
-        return {
-          quest: candidateQuest,
-          filter_result: {
-            stage: "rule",
-            verdict: "replaced",
-            blocked: false,
-            latency_ms: performance.now() - start,
-            rule_latency_ms: ruleResult.latency_ms,
-            llm_latency_ms: llmResult.latency_ms,
-          },
-        };
-      }
+      // F-001 계약: 방어적 일관성을 위해 other 분기와 동일하게 강제 주입한다.
       return {
-        quest: candidateQuest,
+        quest: { ...quest, original_habit: habitText, worldview_id: worldviewId },
         filter_result: {
           stage: "llm",
           verdict: "safe",
@@ -114,7 +119,7 @@ export class SafetyFilterPipeline {
     if (llmResult.verdict === "borderline") {
       console.warn(
         "[SafetyFilterPipeline] LlmVerifier borderline 판정 → 폴백 적용",
-        { reason: llmResult.reason, quest_name: candidateQuest.quest_name },
+        { reason: llmResult.reason, quest_name: quest.quest_name },
       );
     }
 

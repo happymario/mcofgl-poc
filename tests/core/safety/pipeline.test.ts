@@ -8,14 +8,14 @@
 // | RuleFilter verdict      | LlmVerifier | 최종 verdict | blocked | quest           | stage |
 // |-------------------------|-------------|--------------|---------|-----------------|-------|
 // | block_and_fallback      | (미호출)    | unsafe       | true    | fallbackQuest   | rule  |
-// | replaced                | safe        | replaced     | false   | replacedQuest   | rule  |
+// | replaced                | (미호출)    | replaced     | false   | replacedQuest   | rule  |
 // | pass                    | safe        | safe         | false   | originalQuest   | llm   |
 // | pass                    | unsafe      | unsafe       | true    | fallbackQuest   | llm   |
 // | pass                    | borderline  | borderline   | true    | fallbackQuest   | llm   |
 //
 // 주요 규칙:
 // 1) RuleFilter가 block_and_fallback이면 LlmVerifier는 호출되지 않는다(비용 절감).
-// 2) RuleFilter가 replaced면 LlmVerifier는 replacedQuest로 호출된다(원본 X).
+// 2) RuleFilter가 replaced면 LlmVerifier는 호출되지 않는다(룰이 이미 안전 치환을 보장).
 // 3) filter_result.latency_ms는 apply() 전체 지연 (performance.now 차분).
 // 4) rule_latency_ms / llm_latency_ms는 각 단계 결과의 latency_ms를 passthrough.
 // 5) LlmVerifier가 borderline이면 console.warn으로 모니터링용 로그를 남긴다.
@@ -119,7 +119,7 @@ describe("SafetyFilterPipeline.apply", () => {
     expect(result.filter_result.rule_latency_ms).toBe(1);
   });
 
-  it("2) RuleFilter replaced + LlmVerifier safe → replacedQuest + verdict=replaced", async () => {
+  it("2) RuleFilter replaced → LlmVerifier 미호출 + replacedQuest + verdict=replaced", async () => {
     const originalQuest = makeQuest({
       quest_name: "슬픈 아침",
       description: "슬픈 마음으로 일어난다",
@@ -137,7 +137,6 @@ describe("SafetyFilterPipeline.apply", () => {
       replacedQuest,
       latency_ms: 1,
     });
-    llmVerify.mockResolvedValue({ verdict: "safe", latency_ms: 50 });
 
     const result = await pipeline.apply({
       quest: originalQuest,
@@ -146,17 +145,22 @@ describe("SafetyFilterPipeline.apply", () => {
       ageGroup: "7-12",
     });
 
-    // LlmVerifier는 원본이 아닌 replacedQuest로 호출되어야 한다.
-    expect(llmVerify).toHaveBeenCalledTimes(1);
-    expect(llmVerify).toHaveBeenCalledWith(replacedQuest, "7-12");
+    // 룰 치환만으로 안전이 보장되므로 LlmVerifier는 호출되지 않는다(비용 절감).
+    expect(llmVerify).toHaveBeenCalledTimes(0);
     expect(fallbackSelect).toHaveBeenCalledTimes(0);
 
-    expect(result.quest).toBe(replacedQuest);
+    // F-001 계약: original_habit/worldview_id는 요청값으로 강제 주입된다.
+    expect(result.quest).toEqual({
+      ...replacedQuest,
+      original_habit: "아침 7시 기상",
+      worldview_id: "kingdom_of_light",
+    });
     expect(result.filter_result.stage).toBe("rule");
     expect(result.filter_result.verdict).toBe("replaced");
     expect(result.filter_result.blocked).toBe(false);
     expect(result.filter_result.rule_latency_ms).toBe(1);
-    expect(result.filter_result.llm_latency_ms).toBe(50);
+    // LLM 미호출이므로 llm_latency_ms는 없어야 한다.
+    expect(result.filter_result.llm_latency_ms).toBeUndefined();
   });
 
   it("3) RuleFilter pass + LlmVerifier safe → 원본 quest + blocked=false", async () => {
@@ -181,7 +185,12 @@ describe("SafetyFilterPipeline.apply", () => {
     expect(llmVerify).toHaveBeenCalledWith(originalQuest, "7-12");
     expect(fallbackSelect).toHaveBeenCalledTimes(0);
 
-    expect(result.quest).toBe(originalQuest);
+    // F-001 계약: original_habit/worldview_id는 요청값으로 강제 주입된다.
+    expect(result.quest).toEqual({
+      ...originalQuest,
+      original_habit: "아침 7시 기상",
+      worldview_id: "kingdom_of_light",
+    });
     expect(result.filter_result.stage).toBe("llm");
     expect(result.filter_result.verdict).toBe("safe");
     expect(result.filter_result.blocked).toBe(false);
