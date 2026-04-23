@@ -74,6 +74,30 @@ describe("buildCacheKey", () => {
     const other = { ...base, age_group: "13-17" };
     expect(buildCacheKey(base)).not.toBe(buildCacheKey(other));
   });
+
+  it("character_context가 다르면 키가 달라진다 (cross-context 오염 방지)", () => {
+    const base = {
+      habit_text: "아침 7시에 일어나기",
+      worldview_id: "kingdom_of_light",
+      age_group: "7-12",
+    };
+    const withCtx = {
+      ...base,
+      character_context: { name: "루나", class: "마법사", level: 3 },
+    };
+    const withOtherCtx = {
+      ...base,
+      character_context: { name: "아르고", class: "전사", level: 10 },
+    };
+    // character_context 없음 vs 있음
+    expect(buildCacheKey(base)).not.toBe(buildCacheKey(withCtx));
+    // 다른 character_context 간
+    expect(buildCacheKey(withCtx)).not.toBe(buildCacheKey(withOtherCtx));
+    // 동일 character_context는 동일 키
+    expect(buildCacheKey(withCtx)).toBe(
+      buildCacheKey({ ...base, character_context: { name: "루나", class: "마법사", level: 3 } }),
+    );
+  });
 });
 
 describe("RedisCache", () => {
