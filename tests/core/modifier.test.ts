@@ -169,4 +169,33 @@ describe("LightModifier", () => {
     expect(() => new LightModifier(client, "model", 1.5)).toThrow(RangeError);
     expect(() => new LightModifier(client, "model", -0.1)).toThrow(RangeError);
   });
+
+  it("options.signal을 전달하면 messages.create의 RequestOptions(두 번째 인자)로 전파된다", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(MODIFIED_QUEST_FIXTURE)),
+    );
+
+    const ac = new AbortController();
+    await newModifier().modify({ ...BASE_PARAMS }, { signal: ac.signal });
+
+    // Anthropic SDK: create(body, options?: RequestOptions) — signal은 두 번째 인자에 속한다.
+    const body = mockCreate.mock.calls[0]?.[0];
+    const requestOptions = mockCreate.mock.calls[0]?.[1];
+    expect(body).toBeDefined();
+    expect(body.signal).toBeUndefined();
+    expect(requestOptions?.signal).toBe(ac.signal);
+  });
+
+  it("options 미전달 시 기존 동작을 유지한다 (RequestOptions 없음)", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(MODIFIED_QUEST_FIXTURE)),
+    );
+
+    await newModifier().modify({ ...BASE_PARAMS });
+
+    const body = mockCreate.mock.calls[0]?.[0];
+    const requestOptions = mockCreate.mock.calls[0]?.[1];
+    expect(body.signal).toBeUndefined();
+    expect(requestOptions).toBeUndefined();
+  });
 });

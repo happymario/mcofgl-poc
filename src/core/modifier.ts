@@ -74,12 +74,15 @@ export class LightModifier {
     }
   }
 
-  async modify(params: {
-    habitText: string;
-    worldviewId: string;
-    ageGroup: string;
-    baseQuest: Quest;
-  }): Promise<{
+  async modify(
+    params: {
+      habitText: string;
+      worldviewId: string;
+      ageGroup: string;
+      baseQuest: Quest;
+    },
+    options?: { signal?: AbortSignal },
+  ): Promise<{
     quest: Quest;
     usage: { model: string; prompt_tokens: number; completion_tokens: number };
   }> {
@@ -91,13 +94,19 @@ export class LightModifier {
 
     let response: Anthropic.Messages.Message;
     try {
-      response = await this.client.messages.create({
-        model: this.model,
-        max_tokens: MAX_TOKENS,
-        temperature: clamp01(this.baseTemperature),
-        system,
-        messages: [{ role: "user", content: params.habitText }],
-      });
+      // F-004 Task 3 — options.signal이 주어지면 messages.create의 RequestOptions(두 번째 인자)로 전달.
+      // Anthropic SDK는 `create(body, options?: RequestOptions)` 시그니처이며 signal은 RequestOptions에 속한다.
+      // IntegratedPipeline이 AbortSignal.timeout(10_000)을 주입해 LLM 호출 타임아웃을 강제한다.
+      response = await this.client.messages.create(
+        {
+          model: this.model,
+          max_tokens: MAX_TOKENS,
+          temperature: clamp01(this.baseTemperature),
+          system,
+          messages: [{ role: "user", content: params.habitText }],
+        },
+        options?.signal ? { signal: options.signal } : undefined,
+      );
     } catch (cause) {
       throw new ParseError("Anthropic API 호출 실패", cause);
     }
