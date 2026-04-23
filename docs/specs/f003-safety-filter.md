@@ -94,7 +94,7 @@ tests/
 | 액션 | 동작 |
 |------|------|
 | `block_and_fallback` | 즉시 차단 → FallbackSelector 호출 (LlmVerifier 스킵) |
-| `replace` | 키워드를 지정 대체어로 치환 → LlmVerifier로 재검증 (치환 실패 시 폴백) |
+| `replace` | 키워드를 지정 대체어로 치환 → 즉시 반환 (LlmVerifier 스킵). 치환 매핑은 사전 검증된 안전 표현을 사용하므로 추가 LLM 검증이 불필요하다. |
 
 `allowlist`는 RPG 세계관 내 허용 표현 목록이다. RuleFilter가 매칭 전에 allowlist 항목을 길이 내림차순으로 제거해 "어둠의 안개"가 "어둠"보다 먼저 제거되도록 보장한다.
 
@@ -134,16 +134,18 @@ export interface FilterResult {
   │   → FallbackSelector 즉시 호출 (LlmVerifier 스킵)
   │
   │   replaced 판정 (description 키워드 치환)
-  │   → 치환된 quest로 LlmVerifier 진입
+  │   → stage="rule", verdict="replaced", blocked=false (LlmVerifier 스킵)
+  │   → 치환 매핑은 사전 검증된 안전 표현이므로 추가 LLM 검증 불필요
   │
   │   pass 판정
   │   → 원본 quest로 LlmVerifier 진입
   │
-  └─ ② LlmVerifier.verify(candidateQuest, ageGroup)
+  └─ ② LlmVerifier.verify(quest, ageGroup)  ← pass 경로만 진입
       모델: claude-haiku-4-5-20251001, MAX_TOKENS=128, timeout=4000ms
+      판정 기준: 폭력·공포·부정감정·성적 표현 + 경쟁 심리·약점 공략·적대적 행동 → unsafe
+                 RPG 세계관의 일반적 전투 표현(몬스터 처치 등) → safe
 
-      safe + rule=replaced → stage="rule", verdict="replaced", blocked=false
-      safe + rule=pass     → stage="llm",  verdict="safe",     blocked=false
+      safe → stage="llm", verdict="safe", blocked=false
 
       unsafe   → stage="llm", verdict="unsafe",    blocked=true → FallbackSelector
       borderline → stage="llm", verdict="borderline", blocked=true → FallbackSelector
