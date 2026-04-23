@@ -74,7 +74,12 @@ export class SafetyFilterPipeline {
     // Branch B: 룰이 안전 치환에 성공 → LlmVerifier를 건너뛰고 치환된 quest를 즉시 반환.
     // 룰의 replace 카테고리는 사전 검증된 안전 매핑을 사용하므로 추가 LLM 검증이 불필요하다.
     // RuleFilter 계약: verdict="replaced"이면 replacedQuest는 반드시 non-null.
-    // 가드 조건이 false이면(replacedQuest 미존재) Branch C로 흘러 LlmVerifier를 거친다(침묵 안전).
+    // 가드 조건이 false이면(replacedQuest 미존재) Branch C로 흘러 LlmVerifier를 거친다.
+    //
+    // ⚠ 주의 (안전 유지 조건): replace 카테고리를 safety-rules.json에 추가할 때는
+    // 해당 카테고리의 치환 매핑이 SYSTEM_PROMPT에 정의된 신규 기준(경쟁 심리·약점 공략 등)을
+    // 위반하지 않음을 사전 검증해야 한다. Branch B는 LlmVerifier를 거치지 않으므로
+    // SYSTEM_PROMPT 기준에 의한 2차 필터링이 적용되지 않는다.
     if (ruleResult.verdict === "replaced" && ruleResult.replacedQuest) {
       // F-001 계약: original_habit / worldview_id는 항상 현재 요청값으로 강제 주입한다.
       // RuleFilter의 replacedQuest는 원본 quest에서 합성되므로 실질적으로 동일하나,
@@ -95,8 +100,9 @@ export class SafetyFilterPipeline {
     const llmResult = await this.llmVerifier.verify(quest, ageGroup);
 
     if (llmResult.verdict === "safe") {
+      // F-001 계약: 방어적 일관성을 위해 other 분기와 동일하게 강제 주입한다.
       return {
-        quest,
+        quest: { ...quest, original_habit: habitText, worldview_id: worldviewId },
         filter_result: {
           stage: "llm",
           verdict: "safe",

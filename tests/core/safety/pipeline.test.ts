@@ -150,7 +150,7 @@ describe("SafetyFilterPipeline.apply", () => {
     expect(fallbackSelect).toHaveBeenCalledTimes(0);
 
     // F-001 계약: original_habit/worldview_id는 요청값으로 강제 주입된다.
-    expect(result.quest).toMatchObject({
+    expect(result.quest).toEqual({
       ...replacedQuest,
       original_habit: "아침 7시 기상",
       worldview_id: "kingdom_of_light",
@@ -185,7 +185,12 @@ describe("SafetyFilterPipeline.apply", () => {
     expect(llmVerify).toHaveBeenCalledWith(originalQuest, "7-12");
     expect(fallbackSelect).toHaveBeenCalledTimes(0);
 
-    expect(result.quest).toBe(originalQuest);
+    // F-001 계약: original_habit/worldview_id는 요청값으로 강제 주입된다.
+    expect(result.quest).toEqual({
+      ...originalQuest,
+      original_habit: "아침 7시 기상",
+      worldview_id: "kingdom_of_light",
+    });
     expect(result.filter_result.stage).toBe("llm");
     expect(result.filter_result.verdict).toBe("safe");
     expect(result.filter_result.blocked).toBe(false);

@@ -132,12 +132,12 @@ describe("LlmVerifier.verify", () => {
 
 describe("SYSTEM_PROMPT 계약", () => {
   it("경쟁 심리 차단 기준 포함", () => {
-    expect(SYSTEM_PROMPT).toMatch("경쟁");
+    expect(SYSTEM_PROMPT).toContain("경쟁");
   });
   it("약점 공략 차단 기준 포함", () => {
-    expect(SYSTEM_PROMPT).toMatch("약점");
+    expect(SYSTEM_PROMPT).toContain("약점");
   });
   it("RPG 전투 예외 기준 포함", () => {
-    expect(SYSTEM_PROMPT).toMatch("RPG");
+    expect(SYSTEM_PROMPT).toContain("RPG");
   });
 });
