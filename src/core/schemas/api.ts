@@ -69,15 +69,37 @@ export const FilterResultSchema = z.object({
   llm_latency_ms: z.number().optional(),
 });
 
+// F-004 Task 5 — PRD 확정 응답 메타 스키마.
+//
+// 기존 GenerateResponseMeta(path/similarity/filter_result)를 IntegratedPipeline의
+// 새 메타 스키마로 전면 교체한다. 변경 사유:
+// - "path"는 retriever 내부 경로(3종)였으나, 통합 파이프라인은 cache/fallback을 포함한
+//   5종 처리 경로(processing_path)를 노출해야 한다.
+// - safety_check / model_used / tokens / cost는 운영 모니터링 및 비용 집계용 메타.
+//
+// 매핑 규칙(IntegratedPipeline에서 채움):
+// - cache HIT             : path=cache, safety=passed, model_used=null, tokens=0
+// - vector_exact          : safety=passed (filter 미적용), model_used=null, tokens=0
+// - vector_modify         : safety=mapFilter(filter_result), model_used/tokens=meta.llm_usage
+// - llm_new + safe        : safety=mapFilter(filter_result), model_used/tokens=meta.llm_usage
+// - llm_new + blocked     : path=fallback, safety=fallback, model_used=null, tokens=0
+// - retriever throw → llm : path=llm_new, safety=mapFilter, model_used/tokens=transformer.meta
+// - 모든 fallback 경로     : tokens=0, model_used=null, cost=0
 export const GenerateResponseMetaSchema = z.object({
-  // QuestRetriever.route가 결정한 경로 — 스펙 §3.1 경로 분기와 일치.
-  path: z.enum(["vector_exact", "vector_modify", "llm_new"]),
-  // Vector DB 히트가 없으면 null (QuestRetriever가 null을 반환한다).
-  similarity: z.number().nullable(),
-  // embed + search + (modify|transform) 전 구간 합산 지연.
+  processing_path: z.enum([
+    "cache",
+    "vector_exact",
+    "vector_modify",
+    "llm_new",
+    "fallback",
+  ]),
+  similarity_score: z.number().nullable(),
+  safety_check: z.enum(["passed", "replaced", "fallback"]),
   latency_ms: z.number(),
-  // F-003 Safety Filter 결과 — 필터 미적용 응답과의 하위 호환을 위해 optional.
-  filter_result: FilterResultSchema.optional(),
+  model_used: z.string().nullable(),
+  prompt_tokens: z.number(),
+  completion_tokens: z.number(),
+  estimated_cost_usd: z.number(),
 });
 
 export const GenerateResponseSchema = z.object({

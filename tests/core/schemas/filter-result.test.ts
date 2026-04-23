@@ -20,10 +20,19 @@ const sampleQuest = {
   worldview_id: "isekai-academy-v1",
 };
 
+// F-004 Task 5 — GenerateResponseMetaSchema가 PRD 확정 스키마로 교체됨에 따라
+// baseMeta도 새 필드(processing_path / safety_check / model_used / tokens / cost)로 갱신.
+// FilterResult는 더 이상 응답 meta에 포함되지 않고 IntegratedPipeline 내부에서
+// safety_check enum으로 매핑된다.
 const baseMeta = {
-  path: "vector_exact" as const,
-  similarity: 0.92,
+  processing_path: "vector_exact" as const,
+  similarity_score: 0.92,
+  safety_check: "passed" as const,
   latency_ms: 120,
+  model_used: null,
+  prompt_tokens: 0,
+  completion_tokens: 0,
+  estimated_cost_usd: 0,
 };
 
 describe("FilterResultSchema", () => {
@@ -114,86 +123,74 @@ describe("FilterResultSchema", () => {
   });
 });
 
-describe("GenerateResponseSchema filter_result 확장", () => {
-  it("filter_result 미포함(기존 응답)도 하위 호환으로 파싱된다", () => {
+// F-004 Task 5 — 응답 메타 스키마가 PRD 확정 형태로 교체되어, filter_result는
+// 더 이상 GenerateResponseMeta에 포함되지 않는다. IntegratedPipeline이
+// safety_check enum("passed" / "replaced" / "fallback")으로 매핑한다.
+// 본 describe는 새 메타 필드의 필수성과 enum 제약을 회귀 방지한다.
+describe("GenerateResponseSchema 새 메타 필드 (F-004)", () => {
+  it("새 메타 필드 모두 포함 시 파싱 성공", () => {
     const parsed = GenerateResponseSchema.parse({
       quest: sampleQuest,
       meta: baseMeta,
     });
-    expect(parsed.meta.filter_result).toBeUndefined();
-    expect(parsed.meta.path).toBe("vector_exact");
-    expect(parsed.meta.similarity).toBe(0.92);
+    expect(parsed.meta.processing_path).toBe("vector_exact");
+    expect(parsed.meta.similarity_score).toBe(0.92);
+    expect(parsed.meta.safety_check).toBe("passed");
     expect(parsed.meta.latency_ms).toBe(120);
+    expect(parsed.meta.model_used).toBeNull();
+    expect(parsed.meta.prompt_tokens).toBe(0);
+    expect(parsed.meta.completion_tokens).toBe(0);
+    expect(parsed.meta.estimated_cost_usd).toBe(0);
   });
 
-  it("filter_result 포함 응답이 파싱된다", () => {
+  it("processing_path='cache' / model_used=null도 파싱된다", () => {
     const parsed = GenerateResponseSchema.parse({
       quest: sampleQuest,
       meta: {
-        ...baseMeta,
-        filter_result: {
-          stage: "llm",
-          verdict: "replaced",
-          blocked: false,
-          latency_ms: 850,
-          rule_latency_ms: 2,
-          llm_latency_ms: 848,
-        },
+        processing_path: "cache",
+        similarity_score: null,
+        safety_check: "passed",
+        latency_ms: 5,
+        model_used: null,
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        estimated_cost_usd: 0,
       },
     });
-    expect(parsed.meta.filter_result?.stage).toBe("llm");
-    expect(parsed.meta.filter_result?.verdict).toBe("replaced");
-    expect(parsed.meta.filter_result?.blocked).toBe(false);
-    expect(parsed.meta.filter_result?.latency_ms).toBe(850);
+    expect(parsed.meta.processing_path).toBe("cache");
+    expect(parsed.meta.similarity_score).toBeNull();
   });
 
-  it("filter_result.stage enum 위반 시 전체 응답 파싱이 실패한다", () => {
+  it("processing_path enum 위반 시 실패한다", () => {
     const result = GenerateResponseSchema.safeParse({
       quest: sampleQuest,
-      meta: {
-        ...baseMeta,
-        filter_result: {
-          stage: "bogus",
-          verdict: "safe",
-          blocked: false,
-          latency_ms: 3,
-        },
-      },
+      meta: { ...baseMeta, processing_path: "bogus" },
     });
     expect(result.success).toBe(false);
   });
 
-  it("filter_result.verdict enum 위반 시 전체 응답 파싱이 실패한다", () => {
+  it("safety_check enum 위반 시 실패한다", () => {
     const result = GenerateResponseSchema.safeParse({
       quest: sampleQuest,
-      meta: {
-        ...baseMeta,
-        filter_result: {
-          stage: "rule",
-          verdict: "bogus",
-          blocked: false,
-          latency_ms: 3,
-        },
-      },
+      meta: { ...baseMeta, safety_check: "bogus" },
     });
     expect(result.success).toBe(false);
   });
 
-  it("기존 meta 필수 필드(path/similarity/latency_ms)는 여전히 필수다", () => {
+  it("필수 필드(latency_ms) 누락 시 실패한다", () => {
+    const { latency_ms: _omit, ...incomplete } = baseMeta;
     const result = GenerateResponseSchema.safeParse({
       quest: sampleQuest,
-      meta: {
-        path: "vector_exact",
-        similarity: 0.92,
-        // latency_ms 누락
-        filter_result: {
-          stage: "rule",
-          verdict: "safe",
-          blocked: false,
-          latency_ms: 3,
-        },
-      },
+      meta: incomplete,
     });
     expect(result.success).toBe(false);
+  });
+
+  it("similarity_score=null도 허용된다", () => {
+    const parsed = GenerateResponseSchema.parse({
+      quest: sampleQuest,
+      meta: { ...baseMeta, similarity_score: null },
+    });
+    expect(parsed.meta.similarity_score).toBeNull();
   });
 });
