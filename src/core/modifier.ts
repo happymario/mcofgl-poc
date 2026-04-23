@@ -79,7 +79,10 @@ export class LightModifier {
     worldviewId: string;
     ageGroup: string;
     baseQuest: Quest;
-  }): Promise<Quest> {
+  }): Promise<{
+    quest: Quest;
+    usage: { model: string; prompt_tokens: number; completion_tokens: number };
+  }> {
     const system = buildSystemPrompt({
       habitText: params.habitText,
       ageGroup: params.ageGroup,
@@ -128,6 +131,13 @@ export class LightModifier {
       );
     }
 
-    return parsedQuest.data;
+    return {
+      quest: parsedQuest.data,
+      usage: {
+        model: this.model,
+        prompt_tokens: response.usage.input_tokens,
+        completion_tokens: response.usage.output_tokens,
+      },
+    };
   }
 }
