@@ -35,9 +35,12 @@ const CALL_TIMEOUT_MS = 4000;
 
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
-const SYSTEM_PROMPT = `당신은 아동(7~12세) 대상 퀘스트 안전성 평가자입니다.
+export const SYSTEM_PROMPT = `당신은 아동(7~12세) 대상 퀘스트 안전성 평가자입니다.
 다음 퀘스트가 아동에게 적합한지 평가하세요.
 폭력, 공포, 심한 부정감정, 성적 표현이 포함되면 unsafe입니다.
+타인을 이기거나 제압하려는 경쟁 심리, 상대방의 약점을 공략하는 내용,
+적대적 행동을 장려하는 표현도 아동에게 부적절하므로 unsafe입니다.
+RPG 세계관의 일반적 전투 표현(예: 몬스터 처치, 퀘스트 달성)은 safe입니다.
 경계선상이면 borderline, 안전하면 safe입니다.
 반드시 JSON 한 줄로만 응답: {"verdict":"safe"|"borderline"|"unsafe","reason":"이유(선택)"}`;
 

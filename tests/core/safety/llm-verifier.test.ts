@@ -12,7 +12,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LlmVerifier } from "../../../src/core/safety/llm-verifier.js";
+import { LlmVerifier, SYSTEM_PROMPT } from "../../../src/core/safety/llm-verifier.js";
 import type { Quest } from "../../../src/core/schemas/quest.js";
 
 const mockCreate = vi.fn();
@@ -127,5 +127,17 @@ describe("LlmVerifier.verify", () => {
 
     expect(typeof result.latency_ms).toBe("number");
     expect(result.latency_ms).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("SYSTEM_PROMPT 계약", () => {
+  it("경쟁 심리 차단 기준 포함", () => {
+    expect(SYSTEM_PROMPT).toMatch("경쟁");
+  });
+  it("약점 공략 차단 기준 포함", () => {
+    expect(SYSTEM_PROMPT).toMatch("약점");
+  });
+  it("RPG 전투 예외 기준 포함", () => {
+    expect(SYSTEM_PROMPT).toMatch("RPG");
   });
 });
