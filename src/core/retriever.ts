@@ -32,6 +32,10 @@ export interface RetrieveMeta {
   // F-003 Task 7 — safetyPipeline이 주입된 경우에만 설정된다.
   // vector_exact 경로는 저장된(승인된) 퀘스트를 재사용하므로 필터링 대상이 아니어서 undefined.
   filter_result?: FilterResult;
+  // F-004 Task 2 — LLM 호출이 발생한 경로(vector_modify / llm_new)에서 사용한
+  // 모델 및 토큰 사용량. 상위 파이프라인(IntegratedPipeline)에서 비용 집계에 활용한다.
+  // vector_exact 경로는 LLM을 호출하지 않으므로 undefined.
+  llm_usage?: { model: string; prompt_tokens: number; completion_tokens: number };
 }
 
 export interface RetrieveResult {
@@ -103,7 +107,9 @@ export class QuestRetriever {
     }
 
     if (path === "vector_modify" && topHit) {
-      const modified = await this.deps.modifier.modify({
+      // F-004 Task 2 — modifier.modify는 { quest, usage }를 반환한다.
+      // usage 는 meta.llm_usage 로 전파되어 상위 파이프라인에서 비용 집계에 활용된다.
+      const { quest: modified, usage: modifierUsage } = await this.deps.modifier.modify({
         habitText: req.habit_text,
         worldviewId: req.worldview_id,
         ageGroup: req.age_group,
@@ -126,18 +132,33 @@ export class QuestRetriever {
             similarity,
             latency_ms: Date.now() - start,
             filter_result: filtered.filter_result,
+            llm_usage: modifierUsage,
           },
         };
       }
 
       return {
         quest: modified,
-        meta: { path, similarity, latency_ms: Date.now() - start },
+        meta: {
+          path,
+          similarity,
+          latency_ms: Date.now() - start,
+          llm_usage: modifierUsage,
+        },
       };
     }
 
     // llm_new: 신규 생성 + Vector DB 자동 저장.
     const transformed = await this.deps.transformer.transform(req);
+
+    // F-004 Task 2 — transformer meta에서 LLM usage 부분(model/prompt_tokens/completion_tokens)을
+    // 추출해 meta.llm_usage로 전파. latency_ms는 retriever 전체 구간용이 아니라 transform 단독용이므로
+    // llm_usage에는 포함하지 않는다.
+    const transformerUsage = {
+      model: transformed.meta.model,
+      prompt_tokens: transformed.meta.prompt_tokens,
+      completion_tokens: transformed.meta.completion_tokens,
+    };
 
     // F-003 Task 7 — safetyPipeline 주입 시 LLM 생성 결과에 필터 적용.
     // blocked=true일 때는 차단된 원본 퀘스트가 Vector DB에 영구 저장되지 않도록 save를 스킵한다.
@@ -171,6 +192,7 @@ export class QuestRetriever {
           similarity,
           latency_ms: Date.now() - start,
           filter_result: filtered.filter_result,
+          llm_usage: transformerUsage,
         },
       };
     }
@@ -193,7 +215,12 @@ export class QuestRetriever {
 
     return {
       quest: transformed.quest,
-      meta: { path: "llm_new", similarity, latency_ms: Date.now() - start },
+      meta: {
+        path: "llm_new",
+        similarity,
+        latency_ms: Date.now() - start,
+        llm_usage: transformerUsage,
+      },
     };
   }
 

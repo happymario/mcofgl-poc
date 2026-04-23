@@ -1,5 +1,6 @@
 // F-001 Task 7 — Fastify HTTP 서버.
-// F-002 Task 7 — /api/quest/generate 라우트 추가 (retriever 주입 시).
+// F-002 Task 7 — /api/quest/generate 라우트 추가.
+// F-004 Task 5 — /api/quest/generate 핸들러를 IntegratedPipeline에 위임하도록 교체.
 //
 // 스펙 §3.4 HTTP 계약 구현:
 // - POST /api/quest/transform (F-001)
@@ -9,17 +10,17 @@
 //     - ValidationError → 422 (Quest 스키마 검증 실패)
 //     - 기타 예외 → 500 (내부 디테일 노출 금지)
 //   - 성공 → 200 + TransformResponse JSON
-// - POST /api/quest/generate (F-002, retriever 주입 시에만 등록)
+// - POST /api/quest/generate (pipeline 주입 시에만 등록)
 //   - 동일한 검증/에러 매핑 규칙 적용
-//   - 성공 → 200 + GenerateResponse JSON { quest, meta: { path, similarity, latency_ms } }
+//   - 성공 → 200 + GenerateResponse JSON { quest, meta: { processing_path, safety_check, ... } }
 //
-// transformer / retriever는 생성자 주입 — 테스트에서 모킹 가능.
-// 시그니처는 positional(optional retriever) — 기존 buildServer(transformer) 호출과의 호환성 보장.
+// transformer / pipeline은 생성자 주입 — 테스트에서 모킹 가능.
+// 시그니처는 positional(optional pipeline) — 기존 buildServer(transformer) 호출과의 호환성 유지.
 
 import Fastify, { type FastifyInstance } from "fastify";
 import type { ZodError } from "zod";
 import { ParseError, ValidationError } from "../core/errors.js";
-import type { QuestRetriever } from "../core/retriever.js";
+import type { IntegratedPipelinePort } from "../core/pipeline.js";
 import {
   GenerateRequestSchema,
   TransformRequestSchema,
@@ -28,7 +29,6 @@ import type { QuestTransformer } from "../core/transformer.js";
 
 // 핸들러 의존성은 각 메서드만 필요 — 테스트 모킹을 단순화한다.
 export type TransformerPort = Pick<QuestTransformer, "transform">;
-export type RetrieverPort = Pick<QuestRetriever, "retrieve">;
 
 // Zod 에러 메시지를 간결한 단일 문자열로 평탄화 (스택/내부 구조 노출 방지).
 function formatZodError(err: ZodError): string {
@@ -53,7 +53,7 @@ function replyWithError(reply: FastifyReply, err: unknown, tag: string): ReturnT
 
 export function buildServer(
   transformer: TransformerPort,
-  retriever?: RetrieverPort,
+  pipeline?: IntegratedPipelinePort,
 ): FastifyInstance {
   const app = Fastify({ logger: false });
 
@@ -73,9 +73,9 @@ export function buildServer(
     }
   });
 
-  // retriever가 주입된 경우에만 /api/quest/generate 라우트 등록.
+  // pipeline이 주입된 경우에만 /api/quest/generate 라우트 등록.
   // 주입이 없으면 라우트 자체가 없어 404로 응답됨 (graceful degradation).
-  if (retriever) {
+  if (pipeline) {
     app.post("/api/quest/generate", async (request, reply) => {
       const parsed = GenerateRequestSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -85,7 +85,7 @@ export function buildServer(
       }
 
       try {
-        const result = await retriever.retrieve(parsed.data);
+        const result = await pipeline.run(parsed.data);
         return reply.status(200).send(result);
       } catch (err) {
         return replyWithError(reply, err, "/api/quest/generate");

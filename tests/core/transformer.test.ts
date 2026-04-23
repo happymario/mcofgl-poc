@@ -211,4 +211,47 @@ describe("QuestTransformer", () => {
     expect(() => new QuestTransformer(client, "model", 1.5)).toThrow(RangeError);
     expect(() => new QuestTransformer(client, "model", -0.1)).toThrow(RangeError);
   });
+
+  it("options.signal을 전달하면 messages.create의 RequestOptions(두 번째 인자)로 전파된다", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(VALID_QUEST_FIXTURE)),
+    );
+
+    const ac = new AbortController();
+    await newTransformer().transform(BASE_REQUEST, { signal: ac.signal });
+
+    // Anthropic SDK: create(body, options?: RequestOptions) — signal은 두 번째 인자에 속한다.
+    const body = mockCreate.mock.calls[0]?.[0];
+    const requestOptions = mockCreate.mock.calls[0]?.[1];
+    expect(body).toBeDefined();
+    // signal은 body에 섞여 들어가서는 안 된다 (SDK 계약 위반).
+    expect(body.signal).toBeUndefined();
+    expect(requestOptions?.signal).toBe(ac.signal);
+  });
+
+  it("재시도 루프의 모든 시도에서 동일한 signal이 RequestOptions로 전달된다", async () => {
+    mockCreate
+      .mockResolvedValueOnce(buildAnthropicResponse("not json"))
+      .mockResolvedValueOnce(buildAnthropicResponse(JSON.stringify(VALID_QUEST_FIXTURE)));
+
+    const ac = new AbortController();
+    await newTransformer().transform(BASE_REQUEST, { signal: ac.signal });
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(mockCreate.mock.calls[0]?.[1]?.signal).toBe(ac.signal);
+    expect(mockCreate.mock.calls[1]?.[1]?.signal).toBe(ac.signal);
+  });
+
+  it("options 미전달 시 기존 동작을 유지한다 (RequestOptions 없음)", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(VALID_QUEST_FIXTURE)),
+    );
+
+    await newTransformer().transform(BASE_REQUEST);
+
+    const body = mockCreate.mock.calls[0]?.[0];
+    const requestOptions = mockCreate.mock.calls[0]?.[1];
+    expect(body.signal).toBeUndefined();
+    expect(requestOptions).toBeUndefined();
+  });
 });

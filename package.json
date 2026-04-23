@@ -16,12 +16,14 @@
     "eval:blind": "tsx --env-file=.env src/eval/blind-generator.ts",
     "eval:match": "tsx --env-file=.env src/eval/match-runner.ts",
     "eval:safety": "tsx --env-file=.env src/eval/safety-runner.ts",
+    "eval:integrated": "tsx --env-file=.env src/eval/integrated-runner.ts",
     "seed:vectors": "tsx --env-file=.env src/scripts/seed-vectors.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
     "@supabase/supabase-js": "^2.49.0",
     "fastify": "^5.0.0",
+    "ioredis": "^5.10.1",
     "openai": "^4.97.0",
     "zod": "^3.24.0"
   },

@@ -82,9 +82,9 @@ describe("LightModifier", () => {
 
     const result = await newModifier().modify({ ...BASE_PARAMS });
 
-    expect(result.quest_name).toBe(MODIFIED_QUEST_FIXTURE.quest_name);
-    expect(result.description).toBe(MODIFIED_QUEST_FIXTURE.description);
-    expect(result.category).toBe(MODIFIED_QUEST_FIXTURE.category);
+    expect(result.quest.quest_name).toBe(MODIFIED_QUEST_FIXTURE.quest_name);
+    expect(result.quest.description).toBe(MODIFIED_QUEST_FIXTURE.description);
+    expect(result.quest.category).toBe(MODIFIED_QUEST_FIXTURE.category);
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 
@@ -98,7 +98,7 @@ describe("LightModifier", () => {
     // fixture의 original_habit은 "LLM이 돌려준 잘못된 habit 값" 이지만,
     // 요청값(habitText)으로 덮어써야 한다.
     expect(MODIFIED_QUEST_FIXTURE.original_habit).not.toBe(BASE_PARAMS.habitText);
-    expect(result.original_habit).toBe(BASE_PARAMS.habitText);
+    expect(result.quest.original_habit).toBe(BASE_PARAMS.habitText);
   });
 
   it("worldview_id는 LLM 응답값과 무관하게 요청 worldviewId로 강제 주입된다", async () => {
@@ -109,7 +109,21 @@ describe("LightModifier", () => {
     const result = await newModifier().modify({ ...BASE_PARAMS });
 
     expect(MODIFIED_QUEST_FIXTURE.worldview_id).not.toBe(BASE_PARAMS.worldviewId);
-    expect(result.worldview_id).toBe(BASE_PARAMS.worldviewId);
+    expect(result.quest.worldview_id).toBe(BASE_PARAMS.worldviewId);
+  });
+
+  it("반환값에 usage 정보(model/prompt_tokens/completion_tokens)가 포함된다", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(MODIFIED_QUEST_FIXTURE)),
+    );
+
+    const result = await newModifier().modify({ ...BASE_PARAMS });
+
+    expect(result.usage).toEqual({
+      model: "claude-test-model",
+      prompt_tokens: 200,
+      completion_tokens: 100,
+    });
   });
 
   it("JSON 파싱에 실패하면 ParseError를 throw한다 (재시도 없음)", async () => {
@@ -147,12 +161,41 @@ describe("LightModifier", () => {
     mockCreate.mockResolvedValueOnce(buildAnthropicResponse(wrapped));
 
     const result = await newModifier().modify({ ...BASE_PARAMS });
-    expect(result.quest_name).toBe(MODIFIED_QUEST_FIXTURE.quest_name);
+    expect(result.quest.quest_name).toBe(MODIFIED_QUEST_FIXTURE.quest_name);
   });
 
   it("baseTemperature가 [0, 1] 범위를 벗어나면 RangeError를 throw한다", () => {
     const client = new Anthropic({ apiKey: "test" });
     expect(() => new LightModifier(client, "model", 1.5)).toThrow(RangeError);
     expect(() => new LightModifier(client, "model", -0.1)).toThrow(RangeError);
+  });
+
+  it("options.signal을 전달하면 messages.create의 RequestOptions(두 번째 인자)로 전파된다", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(MODIFIED_QUEST_FIXTURE)),
+    );
+
+    const ac = new AbortController();
+    await newModifier().modify({ ...BASE_PARAMS }, { signal: ac.signal });
+
+    // Anthropic SDK: create(body, options?: RequestOptions) — signal은 두 번째 인자에 속한다.
+    const body = mockCreate.mock.calls[0]?.[0];
+    const requestOptions = mockCreate.mock.calls[0]?.[1];
+    expect(body).toBeDefined();
+    expect(body.signal).toBeUndefined();
+    expect(requestOptions?.signal).toBe(ac.signal);
+  });
+
+  it("options 미전달 시 기존 동작을 유지한다 (RequestOptions 없음)", async () => {
+    mockCreate.mockResolvedValueOnce(
+      buildAnthropicResponse(JSON.stringify(MODIFIED_QUEST_FIXTURE)),
+    );
+
+    await newModifier().modify({ ...BASE_PARAMS });
+
+    const body = mockCreate.mock.calls[0]?.[0];
+    const requestOptions = mockCreate.mock.calls[0]?.[1];
+    expect(body.signal).toBeUndefined();
+    expect(requestOptions).toBeUndefined();
   });
 });

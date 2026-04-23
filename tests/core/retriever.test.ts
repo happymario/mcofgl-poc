@@ -131,7 +131,14 @@ describe("QuestRetriever", () => {
   it("sim=0.82 → vector_modify: modifier.modify 호출 (top hit quest 전달), transformer/save 미호출", async () => {
     const topHit = makeHit(0.82);
     fakes.store.search.mockResolvedValueOnce([topHit]);
-    fakes.modifier.modify.mockResolvedValueOnce(MODIFIED_QUEST);
+    fakes.modifier.modify.mockResolvedValueOnce({
+      quest: MODIFIED_QUEST,
+      usage: {
+        model: "claude-test-model",
+        prompt_tokens: 100,
+        completion_tokens: 50,
+      },
+    });
 
     const result = await buildRetriever(fakes).retrieve(BASE_REQUEST);
 
@@ -229,7 +236,14 @@ describe("QuestRetriever", () => {
 
   it("경계값: sim=0.7 → vector_modify (>= 0.7 & < 0.9)", async () => {
     fakes.store.search.mockResolvedValueOnce([makeHit(0.7)]);
-    fakes.modifier.modify.mockResolvedValueOnce(MODIFIED_QUEST);
+    fakes.modifier.modify.mockResolvedValueOnce({
+      quest: MODIFIED_QUEST,
+      usage: {
+        model: "claude-test-model",
+        prompt_tokens: 100,
+        completion_tokens: 50,
+      },
+    });
 
     const result = await buildRetriever(fakes).retrieve(BASE_REQUEST);
 
@@ -238,6 +252,62 @@ describe("QuestRetriever", () => {
     expect(fakes.modifier.modify).toHaveBeenCalledTimes(1);
     expect(fakes.transformer.transform).not.toHaveBeenCalled();
     expect(fakes.store.save).not.toHaveBeenCalled();
+  });
+
+  // F-004 Task 2 — llm_usage 전파 검증.
+  //
+  // 비용 집계를 상위 파이프라인으로 전파할 수 있도록, LLM을 호출하는 경로에서는
+  // meta.llm_usage 가 { model, prompt_tokens, completion_tokens } 형태로 채워져야 한다.
+  // vector_exact 경로는 LLM을 호출하지 않으므로 llm_usage === undefined 여야 한다.
+  describe("llm_usage 전파", () => {
+    it("vector_exact → meta.llm_usage 는 undefined", async () => {
+      fakes.store.search.mockResolvedValueOnce([makeHit(0.95)]);
+
+      const result = await buildRetriever(fakes).retrieve(BASE_REQUEST);
+
+      expect(result.meta.path).toBe("vector_exact");
+      expect(result.meta.llm_usage).toBeUndefined();
+    });
+
+    it("vector_modify → meta.llm_usage 는 modifier.modify 의 usage 값과 일치", async () => {
+      const modifierUsage = {
+        model: "claude-modifier-model",
+        prompt_tokens: 321,
+        completion_tokens: 123,
+      };
+      fakes.store.search.mockResolvedValueOnce([makeHit(0.82)]);
+      fakes.modifier.modify.mockResolvedValueOnce({
+        quest: MODIFIED_QUEST,
+        usage: modifierUsage,
+      });
+
+      const result = await buildRetriever(fakes).retrieve(BASE_REQUEST);
+
+      expect(result.meta.path).toBe("vector_modify");
+      expect(result.meta.llm_usage).toEqual(modifierUsage);
+    });
+
+    it("llm_new → meta.llm_usage 는 transformer meta 의 model/prompt_tokens/completion_tokens 부분집합", async () => {
+      fakes.store.search.mockResolvedValueOnce([]);
+      fakes.transformer.transform.mockResolvedValueOnce({
+        quest: GENERATED_QUEST,
+        meta: {
+          model: "claude-transform-model",
+          latency_ms: 42,
+          prompt_tokens: 500,
+          completion_tokens: 200,
+        },
+      });
+
+      const result = await buildRetriever(fakes).retrieve(BASE_REQUEST);
+
+      expect(result.meta.path).toBe("llm_new");
+      expect(result.meta.llm_usage).toEqual({
+        model: "claude-transform-model",
+        prompt_tokens: 500,
+        completion_tokens: 200,
+      });
+    });
   });
 
   it("llm_new 경로에서 store.save가 실패해도 사용자 응답은 성공으로 반환된다", async () => {
@@ -422,7 +492,14 @@ describe("QuestRetriever", () => {
     it("vector_modify + replaced → 파이프라인이 치환한 quest 반환, filter_result.verdict=replaced", async () => {
       const topHit = makeHit(0.82);
       fakes.store.search.mockResolvedValueOnce([topHit]);
-      fakes.modifier.modify.mockResolvedValueOnce(MODIFIED_QUEST);
+      fakes.modifier.modify.mockResolvedValueOnce({
+        quest: MODIFIED_QUEST,
+        usage: {
+          model: "claude-test-model",
+          prompt_tokens: 100,
+          completion_tokens: 50,
+        },
+      });
 
       const mockPipelineApply = vi.fn().mockResolvedValue({
         quest: REPLACED_QUEST,
